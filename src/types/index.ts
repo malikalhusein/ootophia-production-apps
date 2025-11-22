@@ -1,0 +1,75 @@
+export interface InitialCosts {
+  greenBeansPrice: number;
+  greenBeansShipping: number;
+  roastingService: number;
+  roastingTransport: number;
+}
+
+export interface RoastLog {
+  id: string;
+  date: string;
+  inputWeight: number;
+  outputWeight: number;
+}
+
+export interface BeanAllocation {
+  rnd: number;
+  promo: number;
+}
+
+export interface CoffeeIdentity {
+  origin: string;
+  process: string;
+  variety: string;
+  processor: string;
+  roaster: string;
+  tastingNotes: string;
+}
+
+export interface Lineup {
+  id: string;
+  name: string;
+  identity: CoffeeIdentity;
+  purchaseDate: string;
+  initialWeight: number;
+  costs: InitialCosts;
+  roastLogs: RoastLog[];
+  allocations: BeanAllocation;
+  allocationsUsed: BeanAllocation;
+}
+
+export interface Product {
+  id: string;
+  lineupId: string;
+  name: string;
+  netWeight: number;
+  packagingCost: number;
+  labelCost: number;
+  marketingCost: number;
+  marginPercentage: number;
+  stock: number;
+  stockThreshold: number;
+}
+
+export interface Bundle {
+  id: string;
+  name: string;
+  productIds: string[];
+  customPrice: number;
+}
+
+export interface Transaction {
+  id: string;
+  date: string;
+  status: "sale" | "promo" | "rnd" | "bonus";
+  productId?: string;
+  lineupId?: string;
+  quantity: number;
+  totalValue: number;
+  description: string;
+}
+
+export interface AppSettings {
+  businessName: string;
+  logo: string;
+}
