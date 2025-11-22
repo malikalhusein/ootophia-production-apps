@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X } from "lucide-react";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useLineups } from "@/hooks/useLineups";
 import { Lineup } from "@/types";
 import { LineupForm } from "@/components/CostCalculator/LineupForm";
 
 function generateUUID() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  return crypto.randomUUID();
 }
 
 export default function CostCalculator() {
-  const [lineups, setLineups] = useLocalStorage<Lineup[]>("lineups", []);
+  const { lineups, isLoading, createLineup, updateLineup, deleteLineup } = useLineups();
   const [activeTab, setActiveTab] = useState<string>(
     lineups.length > 0 ? lineups[0].id : ""
   );
@@ -47,21 +47,31 @@ export default function CostCalculator() {
         promo: 0,
       },
     };
-    setLineups([...lineups, newLineup]);
+    createLineup(newLineup);
     setActiveTab(newLineup.id);
   };
 
   const removeLineup = (id: string) => {
-    const updated = lineups.filter((l) => l.id !== id);
-    setLineups(updated);
-    if (activeTab === id && updated.length > 0) {
-      setActiveTab(updated[0].id);
+    deleteLineup(id);
+    if (activeTab === id && lineups.length > 1) {
+      const remaining = lineups.filter((l) => l.id !== id);
+      if (remaining.length > 0) {
+        setActiveTab(remaining[0].id);
+      }
     }
   };
 
-  const updateLineup = (id: string, updates: Partial<Lineup>) => {
-    setLineups(lineups.map((l) => (l.id === id ? { ...l, ...updates } : l)));
+  const handleUpdateLineup = (id: string, updates: Partial<Lineup>) => {
+    updateLineup({ id, updates });
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -119,7 +129,7 @@ export default function CostCalculator() {
                 <TabsContent key={lineup.id} value={lineup.id} className="p-6 mt-0">
                   <LineupForm
                     lineup={lineup}
-                    onUpdate={(updates) => updateLineup(lineup.id, updates)}
+                    onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
                   />
                 </TabsContent>
               ))}
