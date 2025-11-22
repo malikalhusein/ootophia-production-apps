@@ -5,9 +5,12 @@ import {
   Package, 
   Receipt, 
   Settings,
-  Coffee
+  Coffee,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -15,13 +18,14 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Cost Calculator", href: "/calculator", icon: Calculator },
+  { name: "Cost Calculator", href: "/cost-calculator", icon: Calculator },
   { name: "Products", href: "/products", icon: Package },
-  { name: "Sales Journal", href: "/sales", icon: Receipt },
+  { name: "Sales Journal", href: "/sales-journal", icon: Receipt },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar({ onNavigate }: SidebarProps) {
+  const { signOut } = useAuth();
   return (
     <div className="flex h-full flex-col bg-sidebar border-r border-sidebar-border">
       {/* Logo */}
@@ -60,8 +64,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border px-6 py-4">
-        <p className="text-xs text-muted-foreground">
+      <div className="border-t border-sidebar-border px-3 py-4 space-y-2">
+        <Button
+          variant="ghost"
+          onClick={signOut}
+          className="w-full justify-start gap-3 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/50"
+        >
+          <LogOut className="h-5 w-5" />
+          Sign Out
+        </Button>
+        <p className="text-xs text-muted-foreground px-3">
           Production & Sales Management
         </p>
       </div>

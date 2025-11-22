@@ -1,14 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Package, DollarSign, Activity } from "lucide-react";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { Lineup, Product, Transaction } from "@/types";
+import { useLineups } from "@/hooks/useLineups";
+import { useProducts } from "@/hooks/useProducts";
+import { useTransactions } from "@/hooks/useTransactions";
 import { formatCurrency, calculateCostPerGram, calculateWeightForSale } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
 
 export default function Dashboard() {
-  const [lineups] = useLocalStorage<Lineup[]>("lineups", []);
-  const [products] = useLocalStorage<Product[]>("products", []);
-  const [transactions] = useLocalStorage<Transaction[]>("transactions", []);
+  const { lineups, isLoading: lineupsLoading } = useLineups();
+  const { products, isLoading: productsLoading } = useProducts();
+  const { transactions, isLoading: transactionsLoading } = useTransactions();
+
+  const isLoading = lineupsLoading || productsLoading || transactionsLoading;
 
   // Calculate KPIs
   const totalRevenue = transactions
@@ -24,6 +27,14 @@ export default function Dashboard() {
 
   // Low stock products
   const lowStockProducts = products.filter((p) => p.stock <= p.stockThreshold);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
