@@ -221,10 +221,11 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="roastingService">Roasting Service (IDR)</Label>
+                <Label htmlFor="roastingService">Roasting Service (IDR/kg)</Label>
                 <Input
                   id="roastingService"
                   type="number"
+                  step="0.01"
                   value={lineup.costs.roastingService || ""}
                   onChange={(e) =>
                     onUpdate({
@@ -279,6 +280,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                           <Label className="text-xs">Input (g)</Label>
                           <Input
                             type="number"
+                            step="0.1"
                             value={log.inputWeight || ""}
                             onChange={(e) =>
                               updateRoastLog(log.id, { inputWeight: Number(e.target.value) })
@@ -290,6 +292,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                           <Label className="text-xs">Output (g)</Label>
                           <Input
                             type="number"
+                            step="0.1"
                             value={log.outputWeight || ""}
                             onChange={(e) =>
                               updateRoastLog(log.id, { outputWeight: Number(e.target.value) })
