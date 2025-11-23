@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useProfile } from "@/hooks/useProfile";
 import { Transaction } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Plus, FileDown } from "lucide-react";
 import { formatCurrency } from "@/lib/calculations";
+import { generateInvoicePDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -32,6 +34,7 @@ export default function SalesJournal() {
   const { lineups } = useLineups();
   const { products } = useProducts();
   const { transactions, createTransaction } = useTransactions();
+  const { profile } = useProfile();
   
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -50,7 +53,7 @@ export default function SalesJournal() {
     dateTo: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     let totalValue = 0;
@@ -99,54 +102,87 @@ export default function SalesJournal() {
       description: "",
       manualWeight: 0,
     });
-  };
+  }, [formData, products, createTransaction]);
 
   const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
 
-  const filteredTransactions = transactions.filter(t => {
+  // Memoize filtered transactions to prevent re-computation on every render
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
     if (filter.status !== "all" && t.status !== filter.status) return false;
     if (filter.dateFrom && t.date < filter.dateFrom) return false;
     if (filter.dateTo && t.date > filter.dateTo) return false;
     if (filter.search) {
       const searchLower = filter.search.toLowerCase();
       return t.description?.toLowerCase().includes(searchLower);
-    }
-    return true;
-  });
+      }
+      return true;
+    });
+  }, [transactions, filter]);
+
+  const handleGenerateInvoice = useCallback((transaction: Transaction) => {
+    const product = transaction.productId 
+      ? products.find(p => p.id === transaction.productId)
+      : null;
+    const lineup = transaction.lineupId
+      ? lineups.find(l => l.id === transaction.lineupId)
+      : null;
+    
+    const productName = product?.name || lineup?.name || "Unknown";
+    const unitPrice = transaction.totalValue > 0 
+      ? transaction.totalValue / transaction.quantity 
+      : 0;
+    
+    generateInvoicePDF({
+      transaction,
+      businessName: profile?.businessName || "My Coffee Business",
+      productName,
+      unitPrice,
+    });
+    
+    toast.success("Invoice generated successfully");
+  }, [products, lineups, profile]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Sales Journal</h2>
+        <div>
+          <h1 className="text-3xl font-bold">Sales Journal</h1>
+          <p className="text-muted-foreground mt-1">Catat dan kelola transaksi barang keluar</p>
+        </div>
       </div>
 
       {/* Add Transaction Form */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Tambah Transaksi Baru</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+      <Card className="p-6 border-2">
+        <div className="flex items-center gap-2 mb-6">
+          <Plus className="h-5 w-5 text-primary" />
+          <h3 className="text-xl font-semibold">Tambah Transaksi Baru</h3>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="date">Tanggal</Label>
+              <Label htmlFor="date" className="text-sm font-medium">Tanggal</Label>
               <Input
                 id="date"
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                 required
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-sm font-medium">Status Transaksi</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value) => setFormData({ 
-                  ...formData, 
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
                   status: value as TransactionStatus,
                   productId: "",
                   lineupId: "",
-                })}
+                }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -161,12 +197,12 @@ export default function SalesJournal() {
             {isRndOrPromo ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="lineup">Lineup / Batch</Label>
+                  <Label htmlFor="lineup" className="text-sm font-medium">Lineup / Batch</Label>
                   <Select
                     value={formData.lineupId}
-                    onValueChange={(value) => setFormData({ ...formData, lineupId: value })}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, lineupId: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Pilih lineup" />
                     </SelectTrigger>
                     <SelectContent>
@@ -179,27 +215,28 @@ export default function SalesJournal() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="manualWeight">Jumlah (gram)</Label>
+                  <Label htmlFor="manualWeight" className="text-sm font-medium">Jumlah (gram)</Label>
                   <Input
                     id="manualWeight"
                     type="number"
                     step="0.1"
-                    value={formData.manualWeight}
-                    onChange={(e) => setFormData({ ...formData, manualWeight: Number(e.target.value) })}
+                    value={formData.manualWeight || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, manualWeight: Number(e.target.value) }))}
                     placeholder="Masukkan berat dalam gram"
                     required
+                    className="h-11"
                   />
                 </div>
               </>
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="product">Produk / Bundel</Label>
+                  <Label htmlFor="product" className="text-sm font-medium">Produk / Bundel</Label>
                   <Select
                     value={formData.productId}
-                    onValueChange={(value) => setFormData({ ...formData, productId: value })}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, productId: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Pilih produk" />
                     </SelectTrigger>
                     <SelectContent>
@@ -212,34 +249,37 @@ export default function SalesJournal() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">Kuantitas (pcs)</Label>
+                  <Label htmlFor="quantity" className="text-sm font-medium">Kuantitas (pcs)</Label>
                   <Input
                     id="quantity"
                     type="number"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                    value={formData.quantity || ""}
+                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: Number(e.target.value) }))}
                     min="1"
                     required
+                    className="h-11"
                   />
                 </div>
               </>
             )}
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="description">Keterangan</Label>
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="description" className="text-sm font-medium">Keterangan</Label>
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Contoh: Pembelian Kiki"
-                rows={2}
+                rows={3}
+                className="resize-none"
               />
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" className="gap-2">
-              Tambah
+          <div className="flex justify-end pt-2">
+            <Button type="submit" size="lg" className="gap-2 px-8">
+              <Plus className="h-4 w-4" />
+              Tambah Transaksi
             </Button>
           </div>
         </form>
@@ -247,116 +287,130 @@ export default function SalesJournal() {
 
       {/* Filter Section */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Jurnal Penjualan</h3>
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Cari Produk / Keterangan</Label>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold">Riwayat Transaksi</h3>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="search" className="text-sm font-medium">Cari Transaksi</Label>
               <Input
                 id="search"
-                placeholder="Ketik untuk mencari..."
+                placeholder="Cari berdasarkan keterangan..."
                 value={filter.search}
-                onChange={(e) => setFilter({ ...filter, search: e.target.value })}
+                onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label>Status Transaksi</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant={filter.status === "all" ? "default" : "outline"}
-                  onClick={() => setFilter({ ...filter, status: "all" })}
-                >
-                  Semua
-                </Button>
-                <Button
-                  size="sm"
-                  variant={filter.status === "sale" ? "default" : "outline"}
-                  onClick={() => setFilter({ ...filter, status: "sale" })}
-                >
-                  Penjualan
-                </Button>
-                <Button
-                  size="sm"
-                  variant={filter.status === "promo" ? "default" : "outline"}
-                  onClick={() => setFilter({ ...filter, status: "promo" })}
-                >
-                  Promosi
-                </Button>
-                <Button
-                  size="sm"
-                  variant={filter.status === "rnd" ? "default" : "outline"}
-                  onClick={() => setFilter({ ...filter, status: "rnd" })}
-                >
-                  RnD
-                </Button>
-                <Button
-                  size="sm"
-                  variant={filter.status === "bonus" ? "default" : "outline"}
-                  onClick={() => setFilter({ ...filter, status: "bonus" })}
-                >
-                  Bonus
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom">Dari Tanggal</Label>
+              <Label htmlFor="dateFrom" className="text-sm font-medium">Dari Tanggal</Label>
               <Input
                 id="dateFrom"
                 type="date"
                 value={filter.dateFrom}
-                onChange={(e) => setFilter({ ...filter, dateFrom: e.target.value })}
+                onChange={(e) => setFilter(prev => ({ ...prev, dateFrom: e.target.value }))}
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dateTo">Sampai Tanggal</Label>
+              <Label htmlFor="dateTo" className="text-sm font-medium">Sampai Tanggal</Label>
               <Input
                 id="dateTo"
                 type="date"
                 value={filter.dateTo}
-                onChange={(e) => setFilter({ ...filter, dateTo: e.target.value })}
+                onChange={(e) => setFilter(prev => ({ ...prev, dateTo: e.target.value }))}
+                className="h-11"
               />
             </div>
           </div>
-          <div className="flex gap-2">
+          
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Filter Status</Label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={filter.status === "all" ? "default" : "outline"}
+                onClick={() => setFilter(prev => ({ ...prev, status: "all" }))}
+              >
+                Semua
+              </Button>
+              <Button
+                size="sm"
+                variant={filter.status === "sale" ? "default" : "outline"}
+                onClick={() => setFilter(prev => ({ ...prev, status: "sale" }))}
+              >
+                Penjualan
+              </Button>
+              <Button
+                size="sm"
+                variant={filter.status === "bonus" ? "default" : "outline"}
+                onClick={() => setFilter(prev => ({ ...prev, status: "bonus" }))}
+              >
+                Bonus
+              </Button>
+              <Button
+                size="sm"
+                variant={filter.status === "promo" ? "default" : "outline"}
+                onClick={() => setFilter(prev => ({ ...prev, status: "promo" }))}
+              >
+                Promosi
+              </Button>
+              <Button
+                size="sm"
+                variant={filter.status === "rnd" ? "default" : "outline"}
+                onClick={() => setFilter(prev => ({ ...prev, status: "rnd" }))}
+              >
+                RnD
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center pt-2">
             <Button
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={() => setFilter({ search: "", status: "all", dateFrom: "", dateTo: "" })}
             >
-              Reset Filter
+              Reset Semua Filter
             </Button>
-            <Button variant="outline" className="gap-2">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Print
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              Menampilkan {filteredTransactions.length} dari {transactions.length} transaksi
+            </p>
           </div>
         </div>
       </Card>
 
       {/* Transactions Table */}
-      <Card className="p-6">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr className="text-left text-sm">
-                <th className="p-3 font-semibold">TANGGAL</th>
-                <th className="p-3 font-semibold">STATUS</th>
-                <th className="p-3 font-semibold">KETERANGAN</th>
-                <th className="p-3 font-semibold">PRODUK / BATCH</th>
-                <th className="p-3 font-semibold">QTY</th>
-                <th className="p-3 font-semibold">HARGA</th>
-                <th className="p-3 font-semibold">TOTAL</th>
+            <thead className="bg-muted">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wider">
+                <th className="p-4">Tanggal</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Keterangan</th>
+                <th className="p-4">Produk / Batch</th>
+                <th className="p-4 text-right">Qty</th>
+                <th className="p-4 text-right">Harga</th>
+                <th className="p-4 text-right">Total</th>
+                <th className="p-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    No transactions found
+                  <td colSpan={8} className="p-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <FileText className="h-12 w-12 text-muted-foreground/50" />
+                      <p className="text-muted-foreground">Tidak ada transaksi yang ditemukan</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -369,45 +423,77 @@ export default function SalesJournal() {
                     : null;
 
                   return (
-                    <tr key={transaction.id} className="border-t hover:bg-muted/30">
-                      <td className="p-3">
-                        {new Date(transaction.date).toLocaleDateString('id-ID')}
+                    <tr key={transaction.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-4">
+                        <span className="text-sm font-medium">
+                          {new Date(transaction.date).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </span>
                       </td>
-                      <td className="p-3">
+                      <td className="p-4">
                         <span
-                          className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                             transaction.status === "sale"
-                              ? "bg-primary/20 text-primary"
+                              ? "bg-primary/10 text-primary border border-primary/20"
                               : transaction.status === "promo"
-                              ? "bg-blue-500/20 text-blue-600"
+                              ? "bg-blue-500/10 text-blue-600 border border-blue-500/20"
                               : transaction.status === "rnd"
-                              ? "bg-purple-500/20 text-purple-600"
-                              : "bg-green-500/20 text-green-600"
+                              ? "bg-purple-500/10 text-purple-600 border border-purple-500/20"
+                              : "bg-green-500/10 text-green-600 border border-green-500/20"
                           }`}
                         >
                           {statusMap[transaction.status]}
                         </span>
                       </td>
-                      <td className="p-3">{transaction.description || "-"}</td>
-                      <td className="p-3">
-                        {product?.name || lineup?.name || "-"}
+                      <td className="p-4">
+                        <span className="text-sm text-muted-foreground">
+                          {transaction.description || "-"}
+                        </span>
                       </td>
-                      <td className="p-3">
-                        {transaction.status === "rnd" || transaction.status === "promo"
-                          ? `${transaction.quantity}g`
-                          : transaction.quantity}
+                      <td className="p-4">
+                        <span className="text-sm font-medium">
+                          {product?.name || lineup?.name || "-"}
+                        </span>
                       </td>
-                      <td className="p-3">
-                        {transaction.totalValue > 0 
-                          ? formatCurrency(transaction.totalValue / transaction.quantity)
-                          : formatCurrency(0)
-                        }
+                      <td className="p-4 text-right">
+                        <span className="text-sm font-medium">
+                          {transaction.status === "rnd" || transaction.status === "promo"
+                            ? `${transaction.quantity}g`
+                            : `${transaction.quantity} pcs`}
+                        </span>
                       </td>
-                      <td className="p-3 font-semibold">
-                        {transaction.totalValue > 0 
-                          ? formatCurrency(transaction.totalValue)
-                          : "-"
-                        }
+                      <td className="p-4 text-right">
+                        <span className="text-sm">
+                          {transaction.totalValue > 0 
+                            ? formatCurrency(transaction.totalValue / transaction.quantity)
+                            : "-"
+                          }
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className="text-sm font-semibold">
+                          {transaction.totalValue > 0 
+                            ? formatCurrency(transaction.totalValue)
+                            : "-"
+                          }
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleGenerateInvoice(transaction)}
+                            className="gap-2 h-8"
+                            disabled={transaction.totalValue === 0}
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Invoice
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
