@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,11 +29,27 @@ function generateID() {
 }
 
 export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
-  const totalCost = useMemo(() => calculateTotalInitialCost(lineup), [lineup]);
-  const totalOutput = useMemo(() => calculateTotalRoastedOutput(lineup), [lineup]);
-  const shrinkage = useMemo(() => calculateShrinkagePercentage(lineup), [lineup]);
-  const costPerGram = useMemo(() => calculateCostPerGram(lineup), [lineup]);
-  const weightForSale = useMemo(() => calculateWeightForSale(lineup), [lineup]);
+  // Local state for inputs to prevent lag
+  const [localLineup, setLocalLineup] = useState(lineup);
+  
+  // Update local state when lineup prop changes from parent
+  useEffect(() => {
+    setLocalLineup(lineup);
+  }, [lineup.id]); // Only update when switching between different lineups
+
+  const totalCost = useMemo(() => calculateTotalInitialCost(localLineup), [localLineup]);
+  const totalOutput = useMemo(() => calculateTotalRoastedOutput(localLineup), [localLineup]);
+  const shrinkage = useMemo(() => calculateShrinkagePercentage(localLineup), [localLineup]);
+  const costPerGram = useMemo(() => calculateCostPerGram(localLineup), [localLineup]);
+  const weightForSale = useMemo(() => calculateWeightForSale(localLineup), [localLineup]);
+
+  // Debounced update to parent
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onUpdate(localLineup);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localLineup, onUpdate]);
 
   const addRoastLog = useCallback(() => {
     const newLog: RoastLog = {
@@ -42,46 +58,51 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
       inputWeight: 0,
       outputWeight: 0,
     };
-    onUpdate({ roastLogs: [...lineup.roastLogs, newLog] });
-  }, [lineup.roastLogs, onUpdate]);
+    setLocalLineup(prev => ({ ...prev, roastLogs: [...prev.roastLogs, newLog] }));
+  }, []);
 
   const updateRoastLog = useCallback((id: string, updates: Partial<RoastLog>) => {
-    onUpdate({
-      roastLogs: lineup.roastLogs.map((log) =>
+    setLocalLineup(prev => ({
+      ...prev,
+      roastLogs: prev.roastLogs.map((log) =>
         log.id === id ? { ...log, ...updates } : log
       ),
-    });
-  }, [lineup.roastLogs, onUpdate]);
+    }));
+  }, []);
 
   const removeRoastLog = useCallback((id: string) => {
-    onUpdate({
-      roastLogs: lineup.roastLogs.filter((log) => log.id !== id),
-    });
-  }, [lineup.roastLogs, onUpdate]);
+    setLocalLineup(prev => ({
+      ...prev,
+      roastLogs: prev.roastLogs.filter((log) => log.id !== id),
+    }));
+  }, []);
 
   const handleIdentityChange = useCallback((field: string, value: string) => {
-    onUpdate({
-      identity: { ...lineup.identity, [field]: value },
-    });
-  }, [lineup.identity, onUpdate]);
+    setLocalLineup(prev => ({
+      ...prev,
+      identity: { ...prev.identity, [field]: value },
+    }));
+  }, []);
 
   const handleCostsChange = useCallback((field: string, value: number) => {
-    onUpdate({
-      costs: { ...lineup.costs, [field]: value },
-    });
-  }, [lineup.costs, onUpdate]);
+    setLocalLineup(prev => ({
+      ...prev,
+      costs: { ...prev.costs, [field]: value },
+    }));
+  }, []);
 
   const handleAllocationsChange = useCallback((field: string, value: number) => {
-    onUpdate({
-      allocations: { ...lineup.allocations, [field]: value },
-    });
-  }, [lineup.allocations, onUpdate]);
+    setLocalLineup(prev => ({
+      ...prev,
+      allocations: { ...prev.allocations, [field]: value },
+    }));
+  }, []);
 
-  const chartData = useMemo(() => lineup.roastLogs.map((log, index) => ({
+  const chartData = useMemo(() => localLineup.roastLogs.map((log, index) => ({
     name: `Roast ${index + 1}`,
     input: log.inputWeight,
     output: log.outputWeight,
-  })), [lineup.roastLogs]);
+  })), [localLineup.roastLogs]);
 
   return (
     <div className="space-y-6">
@@ -97,8 +118,8 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="name">Batch Name</Label>
                 <Input
                   id="name"
-                  value={lineup.name}
-                  onChange={(e) => onUpdate({ name: e.target.value })}
+                  value={localLineup.name}
+                  onChange={(e) => setLocalLineup(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Ethiopia Yirgacheffe"
                 />
               </div>
@@ -106,7 +127,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="origin">Origin</Label>
                 <Input
                   id="origin"
-                  value={lineup.identity.origin}
+                  value={localLineup.identity.origin}
                   onChange={(e) => handleIdentityChange('origin', e.target.value)}
                   placeholder="e.g., Ethiopia"
                 />
@@ -115,7 +136,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="process">Process</Label>
                 <Input
                   id="process"
-                  value={lineup.identity.process}
+                  value={localLineup.identity.process}
                   onChange={(e) => handleIdentityChange('process', e.target.value)}
                   placeholder="e.g., Washed"
                 />
@@ -124,7 +145,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="variety">Variety</Label>
                 <Input
                   id="variety"
-                  value={lineup.identity.variety}
+                  value={localLineup.identity.variety}
                   onChange={(e) => handleIdentityChange('variety', e.target.value)}
                   placeholder="e.g., Heirloom"
                 />
@@ -133,7 +154,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="processor">Processor</Label>
                 <Input
                   id="processor"
-                  value={lineup.identity.processor}
+                  value={localLineup.identity.processor}
                   onChange={(e) => handleIdentityChange('processor', e.target.value)}
                   placeholder="Processor name"
                 />
@@ -142,7 +163,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Label htmlFor="roaster">Roaster</Label>
                 <Input
                   id="roaster"
-                  value={lineup.identity.roaster}
+                  value={localLineup.identity.roaster}
                   onChange={(e) => handleIdentityChange('roaster', e.target.value)}
                   placeholder="Roaster name"
                 />
@@ -152,7 +173,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
               <Label htmlFor="tastingNotes">Tasting Notes</Label>
               <Textarea
                 id="tastingNotes"
-                value={lineup.identity.tastingNotes}
+                value={localLineup.identity.tastingNotes}
                 onChange={(e) => handleIdentityChange('tastingNotes', e.target.value)}
                 placeholder="Describe flavor profile..."
                 rows={3}
@@ -173,8 +194,8 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="purchaseDate"
                   type="date"
-                  value={lineup.purchaseDate}
-                  onChange={(e) => onUpdate({ purchaseDate: e.target.value })}
+                  value={localLineup.purchaseDate}
+                  onChange={(e) => setLocalLineup(prev => ({ ...prev, purchaseDate: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -182,8 +203,8 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="initialWeight"
                   type="number"
-                  value={lineup.initialWeight || ""}
-                  onChange={(e) => onUpdate({ initialWeight: Number(e.target.value) })}
+                  value={localLineup.initialWeight || ""}
+                  onChange={(e) => setLocalLineup(prev => ({ ...prev, initialWeight: Number(e.target.value) }))}
                   placeholder="1000"
                 />
               </div>
@@ -192,7 +213,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="greenBeansPrice"
                   type="number"
-                  value={lineup.costs.greenBeansPrice || ""}
+                  value={localLineup.costs.greenBeansPrice || ""}
                   onChange={(e) => handleCostsChange('greenBeansPrice', Number(e.target.value))}
                   placeholder="100000"
                 />
@@ -202,7 +223,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="greenBeansShipping"
                   type="number"
-                  value={lineup.costs.greenBeansShipping || ""}
+                  value={localLineup.costs.greenBeansShipping || ""}
                   onChange={(e) => handleCostsChange('greenBeansShipping', Number(e.target.value))}
                   placeholder="50000"
                 />
@@ -213,7 +234,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="roastingService"
                   type="number"
                   step="0.01"
-                  value={lineup.costs.roastingService || ""}
+                  value={localLineup.costs.roastingService || ""}
                   onChange={(e) => handleCostsChange('roastingService', Number(e.target.value))}
                   placeholder="25000"
                 />
@@ -223,7 +244,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="roastingTransport"
                   type="number"
-                  value={lineup.costs.roastingTransport || ""}
+                  value={localLineup.costs.roastingTransport || ""}
                   onChange={(e) => handleCostsChange('roastingTransport', Number(e.target.value))}
                   placeholder="20000"
                 />
@@ -240,9 +261,9 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 </Button>
               </div>
 
-              {lineup.roastLogs.length > 0 ? (
+              {localLineup.roastLogs.length > 0 ? (
                 <div className="space-y-3">
-                  {lineup.roastLogs.map((log) => (
+                  {localLineup.roastLogs.map((log) => (
                     <Card key={log.id} className="p-4">
                       <div className="grid gap-3 md:grid-cols-4">
                         <div className="space-y-1">
@@ -325,23 +346,23 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
             Bean Allocations
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pt-4">
-            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="rndQuota">R&D Quota (g)</Label>
                 <Input
                   id="rndQuota"
                   type="number"
-                  value={lineup.allocations.rnd || ""}
+                  value={localLineup.allocations.rnd || ""}
                   onChange={(e) => handleAllocationsChange('rnd', Number(e.target.value))}
                   placeholder="100"
                 />
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Used: {lineup.allocationsUsed.rnd}g</span>
-                    <span>Remaining: {lineup.allocations.rnd - lineup.allocationsUsed.rnd}g</span>
+                    <span>Used: {localLineup.allocationsUsed.rnd}g</span>
+                    <span>Remaining: {localLineup.allocations.rnd - localLineup.allocationsUsed.rnd}g</span>
                   </div>
                   <Progress
-                    value={(lineup.allocationsUsed.rnd / lineup.allocations.rnd) * 100 || 0}
+                    value={(localLineup.allocationsUsed.rnd / localLineup.allocations.rnd) * 100 || 0}
                   />
                 </div>
               </div>
@@ -350,17 +371,17 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="promoQuota"
                   type="number"
-                  value={lineup.allocations.promo || ""}
+                  value={localLineup.allocations.promo || ""}
                   onChange={(e) => handleAllocationsChange('promo', Number(e.target.value))}
                   placeholder="200"
                 />
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Used: {lineup.allocationsUsed.promo}g</span>
-                    <span>Remaining: {lineup.allocations.promo - lineup.allocationsUsed.promo}g</span>
+                    <span>Used: {localLineup.allocationsUsed.promo}g</span>
+                    <span>Remaining: {localLineup.allocations.promo - localLineup.allocationsUsed.promo}g</span>
                   </div>
                   <Progress
-                    value={(lineup.allocationsUsed.promo / lineup.allocations.promo) * 100 || 0}
+                    value={(localLineup.allocationsUsed.promo / localLineup.allocations.promo) * 100 || 0}
                   />
                 </div>
               </div>
