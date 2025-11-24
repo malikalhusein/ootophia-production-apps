@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,13 +29,13 @@ function generateID() {
 }
 
 export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
-  const totalCost = calculateTotalInitialCost(lineup);
-  const totalOutput = calculateTotalRoastedOutput(lineup);
-  const shrinkage = calculateShrinkagePercentage(lineup);
-  const costPerGram = calculateCostPerGram(lineup);
-  const weightForSale = calculateWeightForSale(lineup);
+  const totalCost = useMemo(() => calculateTotalInitialCost(lineup), [lineup]);
+  const totalOutput = useMemo(() => calculateTotalRoastedOutput(lineup), [lineup]);
+  const shrinkage = useMemo(() => calculateShrinkagePercentage(lineup), [lineup]);
+  const costPerGram = useMemo(() => calculateCostPerGram(lineup), [lineup]);
+  const weightForSale = useMemo(() => calculateWeightForSale(lineup), [lineup]);
 
-  const addRoastLog = () => {
+  const addRoastLog = useCallback(() => {
     const newLog: RoastLog = {
       id: generateID(),
       date: new Date().toISOString().split("T")[0],
@@ -42,27 +43,45 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
       outputWeight: 0,
     };
     onUpdate({ roastLogs: [...lineup.roastLogs, newLog] });
-  };
+  }, [lineup.roastLogs, onUpdate]);
 
-  const updateRoastLog = (id: string, updates: Partial<RoastLog>) => {
+  const updateRoastLog = useCallback((id: string, updates: Partial<RoastLog>) => {
     onUpdate({
       roastLogs: lineup.roastLogs.map((log) =>
         log.id === id ? { ...log, ...updates } : log
       ),
     });
-  };
+  }, [lineup.roastLogs, onUpdate]);
 
-  const removeRoastLog = (id: string) => {
+  const removeRoastLog = useCallback((id: string) => {
     onUpdate({
       roastLogs: lineup.roastLogs.filter((log) => log.id !== id),
     });
-  };
+  }, [lineup.roastLogs, onUpdate]);
 
-  const chartData = lineup.roastLogs.map((log, index) => ({
+  const handleIdentityChange = useCallback((field: string, value: string) => {
+    onUpdate({
+      identity: { ...lineup.identity, [field]: value },
+    });
+  }, [lineup.identity, onUpdate]);
+
+  const handleCostsChange = useCallback((field: string, value: number) => {
+    onUpdate({
+      costs: { ...lineup.costs, [field]: value },
+    });
+  }, [lineup.costs, onUpdate]);
+
+  const handleAllocationsChange = useCallback((field: string, value: number) => {
+    onUpdate({
+      allocations: { ...lineup.allocations, [field]: value },
+    });
+  }, [lineup.allocations, onUpdate]);
+
+  const chartData = useMemo(() => lineup.roastLogs.map((log, index) => ({
     name: `Roast ${index + 1}`,
     input: log.inputWeight,
     output: log.outputWeight,
-  }));
+  })), [lineup.roastLogs]);
 
   return (
     <div className="space-y-6">
@@ -88,11 +107,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="origin"
                   value={lineup.identity.origin}
-                  onChange={(e) =>
-                    onUpdate({
-                      identity: { ...lineup.identity, origin: e.target.value },
-                    })
-                  }
+                  onChange={(e) => handleIdentityChange('origin', e.target.value)}
                   placeholder="e.g., Ethiopia"
                 />
               </div>
@@ -101,11 +116,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="process"
                   value={lineup.identity.process}
-                  onChange={(e) =>
-                    onUpdate({
-                      identity: { ...lineup.identity, process: e.target.value },
-                    })
-                  }
+                  onChange={(e) => handleIdentityChange('process', e.target.value)}
                   placeholder="e.g., Washed"
                 />
               </div>
@@ -114,11 +125,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="variety"
                   value={lineup.identity.variety}
-                  onChange={(e) =>
-                    onUpdate({
-                      identity: { ...lineup.identity, variety: e.target.value },
-                    })
-                  }
+                  onChange={(e) => handleIdentityChange('variety', e.target.value)}
                   placeholder="e.g., Heirloom"
                 />
               </div>
@@ -127,11 +134,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="processor"
                   value={lineup.identity.processor}
-                  onChange={(e) =>
-                    onUpdate({
-                      identity: { ...lineup.identity, processor: e.target.value },
-                    })
-                  }
+                  onChange={(e) => handleIdentityChange('processor', e.target.value)}
                   placeholder="Processor name"
                 />
               </div>
@@ -140,11 +143,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 <Input
                   id="roaster"
                   value={lineup.identity.roaster}
-                  onChange={(e) =>
-                    onUpdate({
-                      identity: { ...lineup.identity, roaster: e.target.value },
-                    })
-                  }
+                  onChange={(e) => handleIdentityChange('roaster', e.target.value)}
                   placeholder="Roaster name"
                 />
               </div>
@@ -154,11 +153,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
               <Textarea
                 id="tastingNotes"
                 value={lineup.identity.tastingNotes}
-                onChange={(e) =>
-                  onUpdate({
-                    identity: { ...lineup.identity, tastingNotes: e.target.value },
-                  })
-                }
+                onChange={(e) => handleIdentityChange('tastingNotes', e.target.value)}
                 placeholder="Describe flavor profile..."
                 rows={3}
               />
@@ -198,11 +193,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="greenBeansPrice"
                   type="number"
                   value={lineup.costs.greenBeansPrice || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      costs: { ...lineup.costs, greenBeansPrice: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleCostsChange('greenBeansPrice', Number(e.target.value))}
                   placeholder="100000"
                 />
               </div>
@@ -212,11 +203,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="greenBeansShipping"
                   type="number"
                   value={lineup.costs.greenBeansShipping || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      costs: { ...lineup.costs, greenBeansShipping: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleCostsChange('greenBeansShipping', Number(e.target.value))}
                   placeholder="50000"
                 />
               </div>
@@ -227,11 +214,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   type="number"
                   step="0.01"
                   value={lineup.costs.roastingService || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      costs: { ...lineup.costs, roastingService: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleCostsChange('roastingService', Number(e.target.value))}
                   placeholder="25000"
                 />
               </div>
@@ -241,11 +224,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="roastingTransport"
                   type="number"
                   value={lineup.costs.roastingTransport || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      costs: { ...lineup.costs, roastingTransport: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleCostsChange('roastingTransport', Number(e.target.value))}
                   placeholder="20000"
                 />
               </div>
@@ -353,11 +332,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="rndQuota"
                   type="number"
                   value={lineup.allocations.rnd || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      allocations: { ...lineup.allocations, rnd: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleAllocationsChange('rnd', Number(e.target.value))}
                   placeholder="100"
                 />
                 <div className="space-y-1">
@@ -376,11 +351,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                   id="promoQuota"
                   type="number"
                   value={lineup.allocations.promo || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      allocations: { ...lineup.allocations, promo: Number(e.target.value) },
-                    })
-                  }
+                  onChange={(e) => handleAllocationsChange('promo', Number(e.target.value))}
                   placeholder="200"
                 />
                 <div className="space-y-1">
