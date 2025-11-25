@@ -17,7 +17,7 @@ import {
   formatWeight
 } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 
 interface LineupFormProps {
   lineup: Lineup;
@@ -398,6 +398,58 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 </p>
               </div>
             </Card>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="cost-breakdown">
+          <AccordionTrigger className="text-lg font-semibold">
+            Cost Breakdown
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Green Beans', value: (localLineup.costs.greenBeansPrice * localLineup.initialWeight) / 1000 },
+                    { name: 'Shipping', value: localLineup.costs.greenBeansShipping },
+                    { name: 'Roasting Service', value: (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 },
+                    { name: 'Transport', value: localLineup.costs.roastingTransport },
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  <Cell fill="hsl(var(--primary))" />
+                  <Cell fill="hsl(var(--accent))" />
+                  <Cell fill="hsl(var(--secondary))" />
+                  <Cell fill="hsl(var(--muted))" />
+                </Pie>
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="p-3 bg-primary/10">
+                <p className="text-xs text-muted-foreground">Green Beans Cost</p>
+                <p className="text-lg font-bold">{formatCurrency((localLineup.costs.greenBeansPrice * localLineup.initialWeight) / 1000)}</p>
+              </Card>
+              <Card className="p-3 bg-accent/10">
+                <p className="text-xs text-muted-foreground">Roasting Cost</p>
+                <p className="text-lg font-bold">{formatCurrency((localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}</p>
+              </Card>
+              <Card className="p-3 bg-secondary/10">
+                <p className="text-xs text-muted-foreground">R&D Allocation</p>
+                <p className="text-lg font-bold">{formatWeight(localLineup.allocations.rnd)}</p>
+              </Card>
+              <Card className="p-3 bg-muted/50">
+                <p className="text-xs text-muted-foreground">Promo Allocation</p>
+                <p className="text-lg font-bold">{formatWeight(localLineup.allocations.promo)}</p>
+              </Card>
+            </div>
           </AccordionContent>
         </AccordionItem>
 

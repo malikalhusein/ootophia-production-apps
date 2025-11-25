@@ -260,6 +260,7 @@ export default function Products() {
         }}
         product={editingProduct}
         lineups={lineups}
+        products={products}
         onSave={editingProduct ? handleUpdateProduct : handleCreateProduct}
       />
 
