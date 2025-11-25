@@ -1,12 +1,17 @@
 import { Lineup, Product, Transaction } from "@/types";
 
 export function calculateTotalInitialCost(lineup: Lineup): number {
-  const { costs, initialWeight } = lineup;
+  const { costs, initialWeight, roastLogs } = lineup;
   const greenBeansCost = (costs.greenBeansPrice * initialWeight) / 1000; // Convert grams to kg
+  
+  // Calculate roasting service cost based on actual batch weights from roast logs
+  const totalRoastingInput = roastLogs.reduce((sum, log) => sum + log.inputWeight, 0);
+  const roastingServiceCost = (costs.roastingService * totalRoastingInput) / 1000; // Convert grams to kg
+  
   return (
     greenBeansCost +
     costs.greenBeansShipping +
-    costs.roastingService +
+    roastingServiceCost +
     costs.roastingTransport
   );
 }
