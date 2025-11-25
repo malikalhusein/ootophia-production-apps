@@ -346,7 +346,7 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
             Bean Allocations
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pt-4">
-              <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="rndQuota">R&D Quota (g)</Label>
                 <Input
@@ -386,6 +386,18 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
                 </div>
               </div>
             </div>
+
+            <Card className="p-4 bg-accent/10 border-accent">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Roasted Beans on Sales</span>
+                  <span className="text-lg font-bold text-accent">{formatWeight(weightForSale)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total roasted output minus R&D and Promo allocations
+                </p>
+              </div>
+            </Card>
           </AccordionContent>
         </AccordionItem>
 

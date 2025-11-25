@@ -24,9 +24,9 @@ export function calculateShrinkagePercentage(lineup: Lineup): number {
 
 export function calculateCostPerGram(lineup: Lineup): number {
   const totalCost = calculateTotalInitialCost(lineup);
-  const totalOutput = calculateTotalRoastedOutput(lineup);
-  if (totalOutput === 0) return 0;
-  return totalCost / totalOutput;
+  const weightForSale = calculateWeightForSale(lineup);
+  if (weightForSale === 0) return 0;
+  return totalCost / weightForSale;
 }
 
 export function calculateWeightForSale(lineup: Lineup): number {
