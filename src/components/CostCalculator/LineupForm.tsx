@@ -22,15 +22,17 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 interface LineupFormProps {
   lineup: Lineup;
   onUpdate: (updates: Partial<Lineup>) => void;
+  onSave?: () => void;
 }
 
 function generateID() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
+export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
   // Local state for inputs to prevent lag
   const [localLineup, setLocalLineup] = useState(lineup);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Update local state when lineup prop changes from parent
   useEffect(() => {
@@ -47,9 +49,17 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onUpdate(localLineup);
+      setHasUnsavedChanges(true);
     }, 300);
     return () => clearTimeout(timer);
   }, [localLineup, onUpdate]);
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave();
+      setHasUnsavedChanges(false);
+    }
+  };
 
   const addRoastLog = useCallback(() => {
     const newLog: RoastLog = {
@@ -106,6 +116,14 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
 
   return (
     <div className="space-y-6">
+      {hasUnsavedChanges && (
+        <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent rounded-lg">
+          <p className="text-sm text-muted-foreground">You have unsaved changes</p>
+          <Button onClick={handleSave} size="sm">
+            Save Changes
+          </Button>
+        </div>
+      )}
       <Accordion type="single" collapsible defaultValue="identity" className="w-full">
         {/* Coffee Identity */}
         <AccordionItem value="identity">
@@ -410,9 +428,15 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
               <PieChart>
                 <Pie
                   data={[
-                    { name: 'Green Beans', value: (localLineup.costs.greenBeansPrice * localLineup.initialWeight) / 1000 },
+                    { 
+                      name: 'Green Beans', 
+                      value: (localLineup.costs.greenBeansPrice * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
+                    },
                     { name: 'Shipping', value: localLineup.costs.greenBeansShipping },
-                    { name: 'Roasting Service', value: (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 },
+                    { 
+                      name: 'Roasting Service', 
+                      value: (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
+                    },
                     { name: 'Transport', value: localLineup.costs.roastingTransport },
                   ]}
                   cx="50%"
@@ -435,11 +459,15 @@ export function LineupForm({ lineup, onUpdate }: LineupFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <Card className="p-3 bg-primary/10">
                 <p className="text-xs text-muted-foreground">Green Beans Cost</p>
-                <p className="text-lg font-bold">{formatCurrency((localLineup.costs.greenBeansPrice * localLineup.initialWeight) / 1000)}</p>
+                <p className="text-lg font-bold">
+                  {formatCurrency((localLineup.costs.greenBeansPrice * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}
+                </p>
               </Card>
               <Card className="p-3 bg-accent/10">
                 <p className="text-xs text-muted-foreground">Roasting Cost</p>
-                <p className="text-lg font-bold">{formatCurrency((localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}</p>
+                <p className="text-lg font-bold">
+                  {formatCurrency((localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}
+                </p>
               </Card>
               <Card className="p-3 bg-secondary/10">
                 <p className="text-xs text-muted-foreground">R&D Allocation</p>

@@ -130,6 +130,7 @@ export default function CostCalculator() {
                   <LineupForm
                     lineup={lineup}
                     onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
+                    onSave={() => handleUpdateLineup(lineup.id, lineup)}
                   />
                 </TabsContent>
               ))}
