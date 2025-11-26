@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import { useLineups } from "@/hooks/useLineups";
 import { Lineup } from "@/types";
 import { LineupForm } from "@/components/CostCalculator/LineupForm";
+import { useToast } from "@/hooks/use-toast";
 
 function generateUUID() {
   return crypto.randomUUID();
@@ -13,6 +14,7 @@ function generateUUID() {
 
 export default function CostCalculator() {
   const { lineups, isLoading, createLineup, updateLineup, deleteLineup } = useLineups();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(
     lineups.length > 0 ? lineups[0].id : ""
   );
@@ -63,6 +65,14 @@ export default function CostCalculator() {
 
   const handleUpdateLineup = (id: string, updates: Partial<Lineup>) => {
     updateLineup({ id, updates });
+  };
+
+  const handleSaveLineup = (lineup: Lineup) => {
+    updateLineup({ id: lineup.id, updates: lineup });
+    toast({
+      title: "Saved",
+      description: "Roast logs have been saved to database",
+    });
   };
 
   if (isLoading) {
@@ -130,7 +140,7 @@ export default function CostCalculator() {
                   <LineupForm
                     lineup={lineup}
                     onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
-                    onSave={() => handleUpdateLineup(lineup.id, lineup)}
+                    onSave={handleSaveLineup}
                   />
                 </TabsContent>
               ))}

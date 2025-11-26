@@ -22,7 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 interface LineupFormProps {
   lineup: Lineup;
   onUpdate: (updates: Partial<Lineup>) => void;
-  onSave?: () => void;
+  onSave?: (lineup: Lineup) => void;
 }
 
 function generateID() {
@@ -33,6 +33,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
   // Local state for inputs to prevent lag
   const [localLineup, setLocalLineup] = useState(lineup);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedRoastLogs, setHasUnsavedRoastLogs] = useState(false);
   
   // Update local state when lineup prop changes from parent
   useEffect(() => {
@@ -56,7 +57,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
 
   const handleSave = () => {
     if (onSave) {
-      onSave();
+      onSave(localLineup);
       setHasUnsavedChanges(false);
     }
   };
@@ -69,6 +70,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
       outputWeight: 0,
     };
     setLocalLineup(prev => ({ ...prev, roastLogs: [...prev.roastLogs, newLog] }));
+    setHasUnsavedRoastLogs(true);
   }, []);
 
   const updateRoastLog = useCallback((id: string, updates: Partial<RoastLog>) => {
@@ -78,6 +80,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
         log.id === id ? { ...log, ...updates } : log
       ),
     }));
+    setHasUnsavedRoastLogs(true);
   }, []);
 
   const removeRoastLog = useCallback((id: string) => {
@@ -85,7 +88,16 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
       ...prev,
       roastLogs: prev.roastLogs.filter((log) => log.id !== id),
     }));
+    setHasUnsavedRoastLogs(true);
   }, []);
+
+  const handleSaveRoastLogs = () => {
+    if (onSave) {
+      onSave(localLineup);
+      setHasUnsavedRoastLogs(false);
+      setHasUnsavedChanges(false);
+    }
+  };
 
   const handleIdentityChange = useCallback((field: string, value: string) => {
     setLocalLineup(prev => ({
@@ -273,10 +285,17 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base">Roast Logs</Label>
-                <Button onClick={addRoastLog} size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Roast
-                </Button>
+                <div className="flex gap-2">
+                  {hasUnsavedRoastLogs && (
+                    <Button onClick={handleSaveRoastLogs} size="sm" variant="default">
+                      Save Roast Logs
+                    </Button>
+                  )}
+                  <Button onClick={addRoastLog} size="sm" variant="outline" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Roast
+                  </Button>
+                </div>
               </div>
 
               {localLineup.roastLogs.length > 0 ? (
