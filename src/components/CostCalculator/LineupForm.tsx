@@ -25,8 +25,8 @@ interface LineupFormProps {
   onSave?: (lineup: Lineup) => void;
 }
 
-function generateID() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+function generateUUID() {
+  return crypto.randomUUID();
 }
 
 export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
@@ -64,7 +64,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
 
   const addRoastLog = useCallback(() => {
     const newLog: RoastLog = {
-      id: generateID(),
+      id: generateUUID(),
       date: new Date().toISOString().split("T")[0],
       inputWeight: 0,
       outputWeight: 0,
@@ -507,21 +507,21 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pt-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="p-4 bg-primary-lighter border-primary">
+              <Card className="p-4 bg-primary/10 border-primary/20">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Total Cost</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(totalCost)}</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(totalCost > 0 ? totalCost : 0)}</p>
               </Card>
-              <Card className="p-4 bg-primary-lighter border-primary">
+              <Card className="p-4 bg-accent/10 border-accent/20">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Total Output</p>
-                <p className="text-xl font-bold text-primary">{formatWeight(totalOutput)}</p>
+                <p className="text-xl font-bold">{formatWeight(totalOutput)}</p>
               </Card>
-              <Card className="p-4 bg-primary-lighter border-primary">
+              <Card className="p-4 bg-secondary/10 border-secondary/20">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Shrinkage</p>
-                <p className="text-xl font-bold text-primary">{shrinkage.toFixed(1)}%</p>
+                <p className="text-xl font-bold">{shrinkage > 0 ? shrinkage.toFixed(1) : 0}%</p>
               </Card>
-              <Card className="p-4 bg-primary-lighter border-primary">
+              <Card className="p-4 bg-green-500/10 border-green-500/20">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Cost Per Gram</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(costPerGram)}</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(costPerGram > 0 ? costPerGram : 0)}</p>
               </Card>
             </div>
             
@@ -529,14 +529,90 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Weight for Sale</span>
-                  <span className="text-sm font-bold">{formatWeight(weightForSale)}</span>
+                  <span className="text-sm font-bold">{formatWeight(weightForSale > 0 ? weightForSale : 0)}</span>
                 </div>
-                <Progress value={50} />
+                <Progress value={totalOutput > 0 ? (weightForSale / totalOutput) * 100 : 0} />
                 <p className="text-xs text-muted-foreground">
                   Track product assignments in the Products section
                 </p>
               </div>
             </Card>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Batch Profitability Analysis */}
+        <AccordionItem value="profitability">
+          <AccordionTrigger className="text-base font-semibold">
+            Batch Profitability Analysis
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pt-4">
+            {localLineup.roastLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Add roast logs to see profitability analysis
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr className="text-left text-sm">
+                        <th className="p-3 font-semibold">Batch</th>
+                        <th className="p-3 font-semibold">Date</th>
+                        <th className="p-3 font-semibold text-right">Input</th>
+                        <th className="p-3 font-semibold text-right">Output</th>
+                        <th className="p-3 font-semibold text-right">Loss %</th>
+                        <th className="p-3 font-semibold text-right">Cost</th>
+                        <th className="p-3 font-semibold text-right">Cost/g</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {localLineup.roastLogs.map((log, index) => {
+                        const batchCost = 
+                          (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
+                          (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
+                          (localLineup.costs.roastingService * log.inputWeight / 1000) +
+                          (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
+                        const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
+                        const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
+
+                        return (
+                          <tr key={log.id} className="border-t hover:bg-muted/30">
+                            <td className="p-3 font-medium">Batch {index + 1}</td>
+                            <td className="p-3">{new Date(log.date).toLocaleDateString('id-ID')}</td>
+                            <td className="p-3 text-right">{formatWeight(log.inputWeight)}</td>
+                            <td className="p-3 text-right">{formatWeight(log.outputWeight)}</td>
+                            <td className="p-3 text-right">
+                              <span className={loss > 20 ? 'text-destructive' : loss > 15 ? 'text-orange-500' : 'text-green-600'}>
+                                {loss.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">{formatCurrency(batchCost)}</td>
+                            <td className="p-3 text-right font-semibold">{formatCurrency(costPerG)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="p-4 bg-blue-500/10 border-blue-500/20">
+                    <p className="text-xs text-muted-foreground">Total Investment</p>
+                    <p className="text-xl font-bold text-blue-600">{formatCurrency(totalCost)}</p>
+                  </Card>
+                  <Card className="p-4 bg-green-500/10 border-green-500/20">
+                    <p className="text-xs text-muted-foreground">Potential Revenue (at cost)</p>
+                    <p className="text-xl font-bold text-green-600">{formatCurrency(weightForSale * costPerGram * 1.5)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Based on 50% markup</p>
+                  </Card>
+                  <Card className="p-4 bg-purple-500/10 border-purple-500/20">
+                    <p className="text-xs text-muted-foreground">Potential Profit</p>
+                    <p className="text-xl font-bold text-purple-600">{formatCurrency((weightForSale * costPerGram * 1.5) - totalCost)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">At 50% margin</p>
+                  </Card>
+                </div>
+              </>
+            )}
           </AccordionContent>
         </AccordionItem>
       </Accordion>

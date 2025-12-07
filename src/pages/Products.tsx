@@ -1,21 +1,33 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useBundles } from "@/hooks/useBundles";
+import { useTransactions } from "@/hooks/useTransactions";
 import { Product, Bundle } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Pencil, Trash2, TrendingUp, Package } from "lucide-react";
 import { ProductDialog } from "@/components/Products/ProductDialog";
 import { BundleDialog } from "@/components/Products/BundleDialog";
-import { calculateProductHPP, calculateCostPerGram, formatCurrency } from "@/lib/calculations";
+import { 
+  calculateProductHPP, 
+  calculateCostPerGram, 
+  formatCurrency, 
+  formatWeight,
+  calculateWeightForSale,
+  calculateWeightAssignedToProducts,
+  calculateTotalRoastedOutput
+} from "@/lib/calculations";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 export default function Products() {
   const { lineups, isLoading: lineupsLoading } = useLineups();
   const { products, isLoading: productsLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { bundles, isLoading: bundlesLoading, createBundle, updateBundle, deleteBundle } = useBundles();
+  const { transactions } = useTransactions();
   
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
@@ -64,12 +76,34 @@ export default function Products() {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
   }
 
-  // Group products by lineup
-  const productsByLineup = lineups.map(lineup => ({
-    lineup,
-    products: products.filter(p => p.lineupId === lineup.id),
-    costPerGram: calculateCostPerGram(lineup),
-  }));
+  // Group products by lineup with quota tracking
+  const productsByLineup = useMemo(() => lineups.map(lineup => {
+    const lineupProducts = products.filter(p => p.lineupId === lineup.id);
+    const costPerGram = calculateCostPerGram(lineup);
+    const totalRoastedOutput = calculateTotalRoastedOutput(lineup);
+    const weightForSale = calculateWeightForSale(lineup);
+    const weightAssigned = calculateWeightAssignedToProducts(lineup, lineupProducts);
+    const availableBeans = Math.max(0, weightForSale - weightAssigned);
+    
+    // Calculate sold quantity from transactions
+    const soldByProduct: Record<string, number> = {};
+    transactions.filter(t => t.status === 'sale' || t.status === 'bonus').forEach(t => {
+      if (t.productId) {
+        soldByProduct[t.productId] = (soldByProduct[t.productId] || 0) + t.quantity;
+      }
+    });
+
+    return {
+      lineup,
+      products: lineupProducts,
+      costPerGram: costPerGram > 0 ? costPerGram : 0,
+      totalRoastedOutput,
+      weightForSale,
+      weightAssigned,
+      availableBeans,
+      soldByProduct,
+    };
+  }), [lineups, products, transactions]);
 
   return (
     <div className="space-y-6">
@@ -98,14 +132,46 @@ export default function Products() {
               </p>
             </Card>
           ) : (
-            productsByLineup.map(({ lineup, products: lineupProducts, costPerGram }) => (
-              <Card key={lineup.id} className="p-6 border-2">
-                <div className="flex items-center justify-between mb-4">
+            productsByLineup.map(({ lineup, products: lineupProducts, costPerGram, totalRoastedOutput, weightForSale, weightAssigned, availableBeans, soldByProduct }) => (
+              <Card key={lineup.id} className="p-6 border-2 space-y-4">
+                <div className="flex items-center justify-between">
                   <h3 className="text-xl font-semibold">{lineup.name}</h3>
                   <span className="text-sm text-muted-foreground">
                     {lineupProducts.length} Varian
                   </span>
                 </div>
+
+                {/* Quota Tracking Section */}
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card className="p-3 bg-primary/10 border-primary/20">
+                    <p className="text-xs text-muted-foreground">Total Roasted</p>
+                    <p className="text-lg font-bold">{formatWeight(totalRoastedOutput)}</p>
+                  </Card>
+                  <Card className="p-3 bg-accent/10 border-accent/20">
+                    <p className="text-xs text-muted-foreground">Beans for Sale</p>
+                    <p className="text-lg font-bold">{formatWeight(weightForSale)}</p>
+                  </Card>
+                  <Card className="p-3 bg-secondary/10 border-secondary/20">
+                    <p className="text-xs text-muted-foreground">Assigned to Products</p>
+                    <p className="text-lg font-bold">{formatWeight(weightAssigned)}</p>
+                  </Card>
+                  <Card className={`p-3 ${availableBeans > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-destructive/10 border-destructive/20'}`}>
+                    <p className="text-xs text-muted-foreground">Available Beans</p>
+                    <p className={`text-lg font-bold ${availableBeans > 0 ? 'text-green-600' : 'text-destructive'}`}>
+                      {formatWeight(availableBeans)}
+                    </p>
+                  </Card>
+                </div>
+
+                {weightForSale > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Beans Utilization</span>
+                      <span>{((weightAssigned / weightForSale) * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={Math.min((weightAssigned / weightForSale) * 100, 100)} />
+                  </div>
+                )}
 
                 {lineupProducts.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4">
@@ -123,28 +189,32 @@ export default function Products() {
                           <th className="p-3 font-semibold">MARGIN</th>
                           <th className="p-3 font-semibold">TERJUAL</th>
                           <th className="p-3 font-semibold">REVENUE</th>
-                          <th className="p-3 font-semibold">STOK AKHIR</th>
+                          <th className="p-3 font-semibold">STOK</th>
                           <th className="p-3 font-semibold">AKSI</th>
                         </tr>
                       </thead>
                       <tbody>
                         {lineupProducts.map((product) => {
                           const { totalHPP, sellingPrice } = calculateProductHPP(product, costPerGram);
-                          const sold = 0; // TODO: Calculate from transactions
+                          const sold = soldByProduct[product.id] || 0;
                           const revenue = sold * sellingPrice;
                           
                           return (
                             <tr key={product.id} className="border-t hover:bg-muted/30">
-                              <td className="p-3">{product.name}</td>
+                              <td className="p-3 font-medium">{product.name}</td>
                               <td className="p-3">{product.netWeight} gr</td>
-                              <td className="p-3">{formatCurrency(totalHPP)}</td>
+                              <td className="p-3">{formatCurrency(totalHPP > 0 ? totalHPP : 0)}</td>
                               <td className="p-3 font-semibold text-primary">
-                                {formatCurrency(sellingPrice)}
+                                {formatCurrency(sellingPrice > 0 ? sellingPrice : 0)}
                               </td>
-                              <td className="p-3">{product.marginPercentage}%</td>
+                              <td className="p-3">{product.marginPercentage.toFixed(1)}%</td>
                               <td className="p-3">{sold}</td>
-                              <td className="p-3">{formatCurrency(revenue)}</td>
-                              <td className="p-3 font-semibold">{product.stock}</td>
+                              <td className="p-3 text-green-600 font-medium">{formatCurrency(revenue)}</td>
+                              <td className="p-3">
+                                <span className={`font-semibold ${product.stock <= product.stockThreshold ? 'text-destructive' : ''}`}>
+                                  {product.stock}
+                                </span>
+                              </td>
                               <td className="p-3">
                                 <div className="flex gap-2">
                                   <Button
