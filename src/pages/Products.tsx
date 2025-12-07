@@ -34,6 +34,35 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingBundle, setEditingBundle] = useState<Bundle | null>(null);
 
+  // Group products by lineup with quota tracking - MUST be before early return
+  const productsByLineup = useMemo(() => lineups.map(lineup => {
+    const lineupProducts = products.filter(p => p.lineupId === lineup.id);
+    const costPerGram = calculateCostPerGram(lineup);
+    const totalRoastedOutput = calculateTotalRoastedOutput(lineup);
+    const weightForSale = calculateWeightForSale(lineup);
+    const weightAssigned = calculateWeightAssignedToProducts(lineup, lineupProducts);
+    const availableBeans = Math.max(0, weightForSale - weightAssigned);
+    
+    // Calculate sold quantity from transactions
+    const soldByProduct: Record<string, number> = {};
+    transactions.filter(t => t.status === 'sale' || t.status === 'bonus').forEach(t => {
+      if (t.productId) {
+        soldByProduct[t.productId] = (soldByProduct[t.productId] || 0) + t.quantity;
+      }
+    });
+
+    return {
+      lineup,
+      products: lineupProducts,
+      costPerGram: costPerGram > 0 ? costPerGram : 0,
+      totalRoastedOutput,
+      weightForSale,
+      weightAssigned,
+      availableBeans,
+      soldByProduct,
+    };
+  }), [lineups, products, transactions]);
+
   const handleCreateProduct = (product: Product) => {
     createProduct(product);
     toast.success("Product created successfully");
@@ -75,35 +104,6 @@ export default function Products() {
   if (lineupsLoading || productsLoading || bundlesLoading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
   }
-
-  // Group products by lineup with quota tracking
-  const productsByLineup = useMemo(() => lineups.map(lineup => {
-    const lineupProducts = products.filter(p => p.lineupId === lineup.id);
-    const costPerGram = calculateCostPerGram(lineup);
-    const totalRoastedOutput = calculateTotalRoastedOutput(lineup);
-    const weightForSale = calculateWeightForSale(lineup);
-    const weightAssigned = calculateWeightAssignedToProducts(lineup, lineupProducts);
-    const availableBeans = Math.max(0, weightForSale - weightAssigned);
-    
-    // Calculate sold quantity from transactions
-    const soldByProduct: Record<string, number> = {};
-    transactions.filter(t => t.status === 'sale' || t.status === 'bonus').forEach(t => {
-      if (t.productId) {
-        soldByProduct[t.productId] = (soldByProduct[t.productId] || 0) + t.quantity;
-      }
-    });
-
-    return {
-      lineup,
-      products: lineupProducts,
-      costPerGram: costPerGram > 0 ? costPerGram : 0,
-      totalRoastedOutput,
-      weightForSale,
-      weightAssigned,
-      availableBeans,
-      soldByProduct,
-    };
-  }), [lineups, products, transactions]);
 
   return (
     <div className="space-y-6">
