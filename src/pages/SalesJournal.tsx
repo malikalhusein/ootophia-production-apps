@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -16,9 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, FileText, Plus, FileDown } from "lucide-react";
-import { formatCurrency } from "@/lib/calculations";
-import { generateInvoicePDF } from "@/lib/pdfGenerator";
+import { Download, FileText, Plus, FileDown, Files } from "lucide-react";
+import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
+import { generateInvoicePDF, generateBatchInvoicesPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -120,6 +121,39 @@ export default function SalesJournal() {
     });
   }, [transactions, filter]);
 
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+
+  const toggleTransactionSelection = (id: string) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllTransactions = () => {
+    if (selectedTransactions.size === filteredTransactions.length) {
+      setSelectedTransactions(new Set());
+    } else {
+      setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
+    }
+  };
+
+  const getProductPrice = useCallback((transaction: Transaction) => {
+    if (!transaction.productId) return 0;
+    const product = products.find(p => p.id === transaction.productId);
+    if (!product) return 0;
+    const lineup = lineups.find(l => l.id === product.lineupId);
+    if (!lineup) return 0;
+    const costPerGram = calculateCostPerGram(lineup);
+    const { sellingPrice } = calculateProductHPP(product, costPerGram);
+    return sellingPrice;
+  }, [products, lineups]);
+
   const handleGenerateInvoice = useCallback((transaction: Transaction) => {
     const product = transaction.productId 
       ? products.find(p => p.id === transaction.productId)
@@ -129,19 +163,44 @@ export default function SalesJournal() {
       : null;
     
     const productName = product?.name || lineup?.name || "Unknown";
-    const unitPrice = transaction.totalValue > 0 
-      ? transaction.totalValue / transaction.quantity 
-      : 0;
+    const unitPrice = getProductPrice(transaction);
+    
+    // Calculate total if not set
+    const totalValue = transaction.totalValue > 0 
+      ? transaction.totalValue 
+      : unitPrice * transaction.quantity;
     
     generateInvoicePDF({
-      transaction,
+      transaction: { ...transaction, totalValue },
       businessName: profile?.businessName || "My Coffee Business",
       productName,
       unitPrice,
     });
     
     toast.success("Invoice generated successfully");
-  }, [products, lineups, profile]);
+  }, [products, lineups, profile, getProductPrice]);
+
+  const handleBatchInvoice = useCallback(() => {
+    const selectedTxns = filteredTransactions.filter(t => selectedTransactions.has(t.id));
+    if (selectedTxns.length === 0) {
+      toast.error("Select at least one transaction");
+      return;
+    }
+
+    generateBatchInvoicesPDF(
+      selectedTxns,
+      profile?.businessName || "My Coffee Business",
+      (t) => {
+        const product = t.productId ? products.find(p => p.id === t.productId) : null;
+        const lineup = t.lineupId ? lineups.find(l => l.id === t.lineupId) : null;
+        return product?.name || lineup?.name || "Unknown";
+      },
+      (t) => getProductPrice(t)
+    );
+
+    toast.success(`${selectedTxns.length} invoices generated`);
+    setSelectedTransactions(new Set());
+  }, [filteredTransactions, selectedTransactions, products, lineups, profile, getProductPrice]);
 
   return (
     <div className="space-y-6 p-6">
@@ -290,6 +349,12 @@ export default function SalesJournal() {
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold">Riwayat Transaksi</h3>
           <div className="flex gap-2">
+            {selectedTransactions.size > 0 && (
+              <Button onClick={handleBatchInvoice} size="sm" className="gap-2">
+                <Files className="h-4 w-4" />
+                Batch Invoice ({selectedTransactions.size})
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-2">
               <Download className="h-4 w-4" />
               Export
@@ -393,6 +458,12 @@ export default function SalesJournal() {
           <table className="w-full">
             <thead className="bg-muted">
               <tr className="text-left text-xs font-semibold uppercase tracking-wider">
+                <th className="p-4 w-10">
+                  <Checkbox 
+                    checked={selectedTransactions.size === filteredTransactions.length && filteredTransactions.length > 0}
+                    onCheckedChange={selectAllTransactions}
+                  />
+                </th>
                 <th className="p-4">Tanggal</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Keterangan</th>
@@ -406,7 +477,7 @@ export default function SalesJournal() {
             <tbody className="divide-y">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center">
+                  <td colSpan={9} className="p-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="h-12 w-12 text-muted-foreground/50" />
                       <p className="text-muted-foreground">Tidak ada transaksi yang ditemukan</p>
@@ -421,9 +492,19 @@ export default function SalesJournal() {
                   const lineup = transaction.lineupId
                     ? lineups.find(l => l.id === transaction.lineupId)
                     : null;
+                  const unitPrice = getProductPrice(transaction);
+                  const displayTotal = transaction.totalValue > 0 
+                    ? transaction.totalValue 
+                    : unitPrice * transaction.quantity;
 
                   return (
                     <tr key={transaction.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-4">
+                        <Checkbox 
+                          checked={selectedTransactions.has(transaction.id)}
+                          onCheckedChange={() => toggleTransactionSelection(transaction.id)}
+                        />
+                      </td>
                       <td className="p-4">
                         <span className="text-sm font-medium">
                           {new Date(transaction.date).toLocaleDateString('id-ID', {
@@ -467,18 +548,12 @@ export default function SalesJournal() {
                       </td>
                       <td className="p-4 text-right">
                         <span className="text-sm">
-                          {transaction.totalValue > 0 
-                            ? formatCurrency(transaction.totalValue / transaction.quantity)
-                            : "-"
-                          }
+                          {unitPrice > 0 ? formatCurrency(unitPrice) : "-"}
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        <span className="text-sm font-semibold">
-                          {transaction.totalValue > 0 
-                            ? formatCurrency(transaction.totalValue)
-                            : "-"
-                          }
+                        <span className="text-sm font-semibold text-green-600">
+                          {displayTotal > 0 ? formatCurrency(displayTotal) : "-"}
                         </span>
                       </td>
                       <td className="p-4">
@@ -488,7 +563,6 @@ export default function SalesJournal() {
                             size="sm"
                             onClick={() => handleGenerateInvoice(transaction)}
                             className="gap-2 h-8"
-                            disabled={transaction.totalValue === 0}
                           >
                             <FileDown className="h-4 w-4" />
                             Invoice
