@@ -2,10 +2,14 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 
 type Theme = "green" | "blue" | "purple" | "orange";
+type Mode = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  mode: Mode;
+  setMode: (mode: Mode) => void;
+  toggleMode: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -25,9 +29,26 @@ function getThemeFromHue(hue: number): Theme {
   return closest[0] as Theme;
 }
 
+function getInitialMode(): Mode {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("theme-mode") as Mode;
+    if (stored) return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "light";
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { profile, updateProfile } = useProfile();
   const [theme, setThemeState] = useState<Theme>("green");
+  const [mode, setModeState] = useState<Mode>(getInitialMode);
+
+  // Apply mode to document
+  useEffect(() => {
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(mode);
+    localStorage.setItem("theme-mode", mode);
+  }, [mode]);
 
   // Sync theme with profile
   useEffect(() => {
@@ -56,8 +77,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setMode = (newMode: Mode) => {
+    setModeState(newMode);
+  };
+
+  const toggleMode = () => {
+    setModeState(prev => prev === "light" ? "dark" : "light");
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, mode, setMode, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );
