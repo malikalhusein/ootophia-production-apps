@@ -6,10 +6,13 @@ import {
   Receipt, 
   Settings,
   Coffee,
-  LogOut
+  LogOut,
+  Moon,
+  Sun
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
@@ -26,6 +29,8 @@ const navigation = [
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { signOut } = useAuth();
+  const { mode, toggleMode } = useTheme();
+  
   return (
     <div className="flex h-full flex-col bg-sidebar border-r border-sidebar-border">
       {/* Logo */}
@@ -65,6 +70,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       {/* Footer */}
       <div className="border-t border-sidebar-border px-3 py-4 space-y-2">
+        <Button
+          variant="ghost"
+          onClick={toggleMode}
+          className="w-full justify-start gap-3 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/50"
+        >
+          {mode === "dark" ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+          {mode === "dark" ? "Light Mode" : "Dark Mode"}
+        </Button>
         <Button
           variant="ghost"
           onClick={signOut}

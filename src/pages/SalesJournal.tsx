@@ -17,12 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, FileText, Plus, FileDown, Files } from "lucide-react";
+import { Download, FileText, Plus, FileDown, Files, X, ShoppingCart } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
 import { generateInvoicePDF, generateBatchInvoicesPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
+
+interface TransactionItem {
+  id: string;
+  productId: string;
+  quantity: number;
+}
 
 const statusMap: Record<TransactionStatus, string> = {
   sale: "Penjualan",
@@ -37,12 +43,15 @@ export default function SalesJournal() {
   const { transactions, createTransaction } = useTransactions();
   const { profile } = useProfile();
   
+  // Multi-item transaction support
+  const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([
+    { id: crypto.randomUUID(), productId: "", quantity: 1 }
+  ]);
+  
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     status: "sale" as TransactionStatus,
-    productId: "",
     lineupId: "",
-    quantity: 1,
     description: "",
     manualWeight: 0,
   });
@@ -54,68 +63,91 @@ export default function SalesJournal() {
     dateTo: "",
   });
 
+  const addTransactionItem = useCallback(() => {
+    setTransactionItems(prev => [...prev, { id: crypto.randomUUID(), productId: "", quantity: 1 }]);
+  }, []);
+
+  const removeTransactionItem = useCallback((id: string) => {
+    setTransactionItems(prev => prev.filter(item => item.id !== id));
+  }, []);
+
+  const updateTransactionItem = useCallback((id: string, updates: Partial<TransactionItem>) => {
+    setTransactionItems(prev => prev.map(item => 
+      item.id === id ? { ...item, ...updates } : item
+    ));
+  }, []);
+
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
-    let totalValue = 0;
-    let quantity = formData.quantity;
-
-    // For sale/bonus, use product
-    if (formData.status === "sale" || formData.status === "bonus") {
-      const product = products.find(p => p.id === formData.productId);
-      if (!product) {
-        toast.error("Please select a product");
+    const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
+    
+    if (isRndOrPromo) {
+      // For RnD/Promo, create single transaction with manual weight
+      if (!formData.lineupId) {
+        toast.error("Pilih lineup terlebih dahulu");
         return;
       }
-      // TODO: Calculate product price properly
-      totalValue = 0;
+      
+      const transaction: Transaction = {
+        id: crypto.randomUUID(),
+        date: formData.date,
+        status: formData.status,
+        lineupId: formData.lineupId,
+        quantity: formData.manualWeight,
+        totalValue: 0,
+        description: formData.description,
+      };
+
+      createTransaction(transaction);
+      toast.success("Transaksi berhasil ditambahkan");
     } else {
-      // For RnD/Promo, use manual weight
-      quantity = formData.manualWeight;
-      totalValue = 0;
+      // For sale/bonus, create transaction for each item
+      const validItems = transactionItems.filter(item => item.productId && item.quantity > 0);
+      
+      if (validItems.length === 0) {
+        toast.error("Tambahkan minimal satu produk");
+        return;
+      }
+
+      validItems.forEach(item => {
+        const transaction: Transaction = {
+          id: crypto.randomUUID(),
+          date: formData.date,
+          status: formData.status,
+          productId: item.productId,
+          quantity: item.quantity,
+          totalValue: 0,
+          description: formData.description,
+        };
+        createTransaction(transaction);
+      });
+
+      toast.success(`${validItems.length} transaksi berhasil ditambahkan`);
     }
-
-    const transaction: Transaction = {
-      id: crypto.randomUUID(),
-      date: formData.date,
-      status: formData.status,
-      productId: (formData.status === "sale" || formData.status === "bonus") 
-        ? formData.productId 
-        : undefined,
-      lineupId: (formData.status === "rnd" || formData.status === "promo")
-        ? formData.lineupId
-        : undefined,
-      quantity,
-      totalValue,
-      description: formData.description,
-    };
-
-    createTransaction(transaction);
-    toast.success("Transaction added successfully");
     
     // Reset form
     setFormData({
       date: new Date().toISOString().split('T')[0],
       status: "sale",
-      productId: "",
       lineupId: "",
-      quantity: 1,
       description: "",
       manualWeight: 0,
     });
-  }, [formData, products, createTransaction]);
+    setTransactionItems([{ id: crypto.randomUUID(), productId: "", quantity: 1 }]);
+  }, [formData, transactionItems, createTransaction]);
 
   const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
 
-  // Memoize filtered transactions to prevent re-computation on every render
+  // Memoize filtered transactions
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-    if (filter.status !== "all" && t.status !== filter.status) return false;
-    if (filter.dateFrom && t.date < filter.dateFrom) return false;
-    if (filter.dateTo && t.date > filter.dateTo) return false;
-    if (filter.search) {
-      const searchLower = filter.search.toLowerCase();
-      return t.description?.toLowerCase().includes(searchLower);
+      if (filter.status !== "all" && t.status !== filter.status) return false;
+      if (filter.dateFrom && t.date < filter.dateFrom) return false;
+      if (filter.dateTo && t.date > filter.dateTo) return false;
+      if (filter.search) {
+        const searchLower = filter.search.toLowerCase();
+        return t.description?.toLowerCase().includes(searchLower);
       }
       return true;
     });
@@ -155,20 +187,11 @@ export default function SalesJournal() {
   }, [products, lineups]);
 
   const handleGenerateInvoice = useCallback((transaction: Transaction) => {
-    const product = transaction.productId 
-      ? products.find(p => p.id === transaction.productId)
-      : null;
-    const lineup = transaction.lineupId
-      ? lineups.find(l => l.id === transaction.lineupId)
-      : null;
-    
+    const product = transaction.productId ? products.find(p => p.id === transaction.productId) : null;
+    const lineup = transaction.lineupId ? lineups.find(l => l.id === transaction.lineupId) : null;
     const productName = product?.name || lineup?.name || "Unknown";
     const unitPrice = getProductPrice(transaction);
-    
-    // Calculate total if not set
-    const totalValue = transaction.totalValue > 0 
-      ? transaction.totalValue 
-      : unitPrice * transaction.quantity;
+    const totalValue = transaction.totalValue > 0 ? transaction.totalValue : unitPrice * transaction.quantity;
     
     generateInvoicePDF({
       transaction: { ...transaction, totalValue },
@@ -176,17 +199,15 @@ export default function SalesJournal() {
       productName,
       unitPrice,
     });
-    
     toast.success("Invoice generated successfully");
   }, [products, lineups, profile, getProductPrice]);
 
   const handleBatchInvoice = useCallback(() => {
     const selectedTxns = filteredTransactions.filter(t => selectedTransactions.has(t.id));
     if (selectedTxns.length === 0) {
-      toast.error("Select at least one transaction");
+      toast.error("Pilih minimal satu transaksi");
       return;
     }
-
     generateBatchInvoicesPDF(
       selectedTxns,
       profile?.businessName || "My Coffee Business",
@@ -197,51 +218,49 @@ export default function SalesJournal() {
       },
       (t) => getProductPrice(t)
     );
-
     toast.success(`${selectedTxns.length} invoices generated`);
     setSelectedTransactions(new Set());
   }, [filteredTransactions, selectedTransactions, products, lineups, profile, getProductPrice]);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold">Sales Journal</h1>
-          <p className="text-muted-foreground mt-1">Catat dan kelola transaksi barang keluar</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Sales Journal</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Catat dan kelola transaksi barang keluar</p>
         </div>
       </div>
 
       {/* Add Transaction Form */}
-      <Card className="p-6 border-2">
-        <div className="flex items-center gap-2 mb-6">
+      <Card className="p-4 md:p-6 border-2">
+        <div className="flex items-center gap-2 mb-4 md:mb-6">
           <Plus className="h-5 w-5 text-primary" />
-          <h3 className="text-xl font-semibold">Tambah Transaksi Baru</h3>
+          <h3 className="text-lg md:text-xl font-semibold">Tambah Transaksi Baru</h3>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="date" className="text-sm font-medium">Tanggal</Label>
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+          <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5 md:space-y-2">
+              <Label htmlFor="date" className="text-xs md:text-sm font-medium">Tanggal</Label>
               <Input
                 id="date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                 required
-                className="h-11"
+                className="h-10 md:h-11 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="status" className="text-sm font-medium">Status Transaksi</Label>
+            <div className="space-y-1.5 md:space-y-2">
+              <Label htmlFor="status" className="text-xs md:text-sm font-medium">Status Transaksi</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
                   status: value as TransactionStatus,
-                  productId: "",
                   lineupId: "",
                 }))}
               >
-                <SelectTrigger className="h-11">
+                <SelectTrigger className="h-10 md:h-11 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,13 +274,13 @@ export default function SalesJournal() {
 
             {isRndOrPromo ? (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="lineup" className="text-sm font-medium">Lineup / Batch</Label>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label htmlFor="lineup" className="text-xs md:text-sm font-medium">Lineup / Batch</Label>
                   <Select
                     value={formData.lineupId}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, lineupId: value }))}
                   >
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-10 md:h-11 text-sm">
                       <SelectValue placeholder="Pilih lineup" />
                     </SelectTrigger>
                     <SelectContent>
@@ -273,8 +292,8 @@ export default function SalesJournal() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="manualWeight" className="text-sm font-medium">Jumlah (gram)</Label>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label htmlFor="manualWeight" className="text-xs md:text-sm font-medium">Jumlah (gram)</Label>
                   <Input
                     id="manualWeight"
                     type="number"
@@ -283,60 +302,90 @@ export default function SalesJournal() {
                     onChange={(e) => setFormData(prev => ({ ...prev, manualWeight: Number(e.target.value) }))}
                     placeholder="Masukkan berat dalam gram"
                     required
-                    className="h-11"
+                    className="h-10 md:h-11 text-sm"
                   />
                 </div>
               </>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="product" className="text-sm font-medium">Produk / Bundel</Label>
-                  <Select
-                    value={formData.productId}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, productId: value }))}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Pilih produk" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="sm:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs md:text-sm font-medium flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Item Transaksi
+                  </Label>
+                  <Button type="button" onClick={addTransactionItem} size="sm" variant="outline" className="gap-1 h-8">
+                    <Plus className="h-3 w-3" />
+                    Tambah Item
+                  </Button>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="quantity" className="text-sm font-medium">Kuantitas (pcs)</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.quantity || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: Number(e.target.value) }))}
-                    min="1"
-                    required
-                    className="h-11"
-                  />
+                  {transactionItems.map((item, index) => (
+                    <div key={item.id} className="flex gap-2 items-end">
+                      <div className="flex-1 space-y-1">
+                        {index === 0 && <Label className="text-xs text-muted-foreground">Produk</Label>}
+                        <Select
+                          value={item.productId}
+                          onValueChange={(value) => updateTransactionItem(item.id, { productId: value })}
+                        >
+                          <SelectTrigger className="h-9 md:h-10 text-sm">
+                            <SelectValue placeholder="Pilih produk" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-20 md:w-24 space-y-1">
+                        {index === 0 && <Label className="text-xs text-muted-foreground">Qty</Label>}
+                        <Input
+                          type="number"
+                          value={item.quantity || ""}
+                          onChange={(e) => updateTransactionItem(item.id, { quantity: Number(e.target.value) })}
+                          min="1"
+                          className="h-9 md:h-10 text-sm"
+                        />
+                      </div>
+                      {transactionItems.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeTransactionItem(item.id)}
+                          className="h-9 w-9 text-destructive hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </>
+                {transactionItems.length > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    Total: {transactionItems.length} item dalam transaksi ini
+                  </p>
+                )}
+              </div>
             )}
 
-            <div className="space-y-2 lg:col-span-2">
-              <Label htmlFor="description" className="text-sm font-medium">Keterangan</Label>
+            <div className="space-y-1.5 md:space-y-2 sm:col-span-2 lg:col-span-4">
+              <Label htmlFor="description" className="text-xs md:text-sm font-medium">Keterangan</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Contoh: Pembelian Kiki"
-                rows={3}
-                className="resize-none"
+                rows={2}
+                className="resize-none text-sm"
               />
             </div>
           </div>
 
           <div className="flex justify-end pt-2">
-            <Button type="submit" size="lg" className="gap-2 px-8">
+            <Button type="submit" size="default" className="gap-2 px-6 md:px-8 h-10 md:h-11">
               <Plus className="h-4 w-4" />
               Tambah Transaksi
             </Button>
@@ -345,64 +394,65 @@ export default function SalesJournal() {
       </Card>
 
       {/* Filter Section */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold">Riwayat Transaksi</h3>
-          <div className="flex gap-2">
+      <Card className="p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 md:mb-6">
+          <h3 className="text-lg md:text-xl font-semibold">Riwayat Transaksi</h3>
+          <div className="flex gap-2 w-full sm:w-auto">
             {selectedTransactions.size > 0 && (
-              <Button onClick={handleBatchInvoice} size="sm" className="gap-2">
+              <Button onClick={handleBatchInvoice} size="sm" className="gap-2 flex-1 sm:flex-none">
                 <Files className="h-4 w-4" />
                 Batch Invoice ({selectedTransactions.size})
               </Button>
             )}
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none">
               <Download className="h-4 w-4" />
               Export
             </Button>
           </div>
         </div>
         
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2 lg:col-span-2">
-              <Label htmlFor="search" className="text-sm font-medium">Cari Transaksi</Label>
+        <div className="space-y-4 md:space-y-6">
+          <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5 md:space-y-2 sm:col-span-2">
+              <Label htmlFor="search" className="text-xs md:text-sm font-medium">Cari Transaksi</Label>
               <Input
                 id="search"
                 placeholder="Cari berdasarkan keterangan..."
                 value={filter.search}
                 onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
-                className="h-11"
+                className="h-10 md:h-11 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateFrom" className="text-sm font-medium">Dari Tanggal</Label>
+            <div className="space-y-1.5 md:space-y-2">
+              <Label htmlFor="dateFrom" className="text-xs md:text-sm font-medium">Dari Tanggal</Label>
               <Input
                 id="dateFrom"
                 type="date"
                 value={filter.dateFrom}
                 onChange={(e) => setFilter(prev => ({ ...prev, dateFrom: e.target.value }))}
-                className="h-11"
+                className="h-10 md:h-11 text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateTo" className="text-sm font-medium">Sampai Tanggal</Label>
+            <div className="space-y-1.5 md:space-y-2">
+              <Label htmlFor="dateTo" className="text-xs md:text-sm font-medium">Sampai Tanggal</Label>
               <Input
                 id="dateTo"
                 type="date"
                 value={filter.dateTo}
                 onChange={(e) => setFilter(prev => ({ ...prev, dateTo: e.target.value }))}
-                className="h-11"
+                className="h-10 md:h-11 text-sm"
               />
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Filter Status</Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-1.5 md:space-y-2">
+            <Label className="text-xs md:text-sm font-medium">Filter Status</Label>
+            <div className="flex flex-wrap gap-1.5 md:gap-2">
               <Button
                 size="sm"
                 variant={filter.status === "all" ? "default" : "outline"}
                 onClick={() => setFilter(prev => ({ ...prev, status: "all" }))}
+                className="text-xs md:text-sm h-8"
               >
                 Semua
               </Button>
@@ -410,6 +460,7 @@ export default function SalesJournal() {
                 size="sm"
                 variant={filter.status === "sale" ? "default" : "outline"}
                 onClick={() => setFilter(prev => ({ ...prev, status: "sale" }))}
+                className="text-xs md:text-sm h-8"
               >
                 Penjualan
               </Button>
@@ -417,6 +468,7 @@ export default function SalesJournal() {
                 size="sm"
                 variant={filter.status === "bonus" ? "default" : "outline"}
                 onClick={() => setFilter(prev => ({ ...prev, status: "bonus" }))}
+                className="text-xs md:text-sm h-8"
               >
                 Bonus
               </Button>
@@ -424,6 +476,7 @@ export default function SalesJournal() {
                 size="sm"
                 variant={filter.status === "promo" ? "default" : "outline"}
                 onClick={() => setFilter(prev => ({ ...prev, status: "promo" }))}
+                className="text-xs md:text-sm h-8"
               >
                 Promosi
               </Button>
@@ -431,21 +484,23 @@ export default function SalesJournal() {
                 size="sm"
                 variant={filter.status === "rnd" ? "default" : "outline"}
                 onClick={() => setFilter(prev => ({ ...prev, status: "rnd" }))}
+                className="text-xs md:text-sm h-8"
               >
                 RnD
               </Button>
             </div>
           </div>
           
-          <div className="flex justify-between items-center pt-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pt-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setFilter({ search: "", status: "all", dateFrom: "", dateTo: "" })}
+              className="text-xs md:text-sm"
             >
               Reset Semua Filter
             </Button>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               Menampilkan {filteredTransactions.length} dari {transactions.length} transaksi
             </p>
           </div>
