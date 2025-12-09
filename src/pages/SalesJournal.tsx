@@ -17,9 +17,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, FileText, Plus, FileDown, Files, X, ShoppingCart } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download, FileText, Plus, FileDown, Files, X, ShoppingCart, FileSpreadsheet } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
 import { generateInvoicePDF, generateBatchInvoicesPDF } from "@/lib/pdfGenerator";
+import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -222,6 +229,30 @@ export default function SalesJournal() {
     setSelectedTransactions(new Set());
   }, [filteredTransactions, selectedTransactions, products, lineups, profile, getProductPrice]);
 
+  const handleExportCSV = useCallback(() => {
+    exportToCSV({
+      transactions: filteredTransactions,
+      products,
+      lineups,
+      businessName: profile?.businessName || 'My Coffee Business',
+      dateFrom: filter.dateFrom || undefined,
+      dateTo: filter.dateTo || undefined,
+    });
+    toast.success('Data berhasil diexport ke CSV');
+  }, [filteredTransactions, products, lineups, profile, filter]);
+
+  const handleExportPDF = useCallback(() => {
+    exportToPDF({
+      transactions: filteredTransactions,
+      products,
+      lineups,
+      businessName: profile?.businessName || 'My Coffee Business',
+      dateFrom: filter.dateFrom || undefined,
+      dateTo: filter.dateTo || undefined,
+    });
+    toast.success('Laporan PDF berhasil dibuat');
+  }, [filteredTransactions, products, lineups, profile, filter]);
+
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -404,10 +435,24 @@ export default function SalesJournal() {
                 Batch Invoice ({selectedTransactions.size})
               </Button>
             )}
-            <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-none">
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF} className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Export PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         
