@@ -8,7 +8,8 @@ import {
   Coffee,
   LogOut,
   Moon,
-  Sun
+  Sun,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +25,7 @@ const navigation = [
   { name: "Cost Calculator", href: "/cost-calculator", icon: Calculator },
   { name: "Products", href: "/products", icon: Package },
   { name: "Sales Journal", href: "/sales-journal", icon: Receipt },
+  { name: "Profitability", href: "/batch-profitability", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

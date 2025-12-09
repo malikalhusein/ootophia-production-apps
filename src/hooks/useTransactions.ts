@@ -58,6 +58,30 @@ export function useTransactions() {
     },
   });
 
+  const updateTransaction = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Transaction> }) => {
+      const dbUpdates: Record<string, unknown> = {};
+      
+      if (updates.date !== undefined) dbUpdates.date = updates.date;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.productId !== undefined) dbUpdates.product_id = updates.productId || null;
+      if (updates.lineupId !== undefined) dbUpdates.lineup_id = updates.lineupId || null;
+      if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
+      if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+
+      const { error } = await supabase
+        .from('transactions')
+        .update(dbUpdates)
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+
   const deleteTransaction = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -75,7 +99,8 @@ export function useTransactions() {
   return {
     transactions,
     isLoading,
-    createTransaction: createTransaction.mutate,
-    deleteTransaction: deleteTransaction.mutate,
+    createTransaction: createTransaction.mutateAsync,
+    updateTransaction: updateTransaction.mutateAsync,
+    deleteTransaction: deleteTransaction.mutateAsync,
   };
 }
