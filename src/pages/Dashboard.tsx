@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Package, DollarSign, Activity } from "lucide-react";
+import { TrendingUp, Package, DollarSign, Activity, AlertTriangle } from "lucide-react";
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useInventoryAlerts } from "@/hooks/useInventoryAlerts";
 import { formatCurrency, calculateCostPerGram, calculateWeightForSale } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
   const { lineups, isLoading: lineupsLoading } = useLineups();
@@ -12,6 +14,9 @@ export default function Dashboard() {
   const { transactions, isLoading: transactionsLoading } = useTransactions();
 
   const isLoading = lineupsLoading || productsLoading || transactionsLoading;
+
+  // Inventory alerts
+  const { lowStockProducts, outOfStockProducts } = useInventoryAlerts(products, productsLoading);
 
   // Calculate KPIs
   const totalRevenue = transactions
@@ -24,9 +29,6 @@ export default function Dashboard() {
 
   const activeLineups = lineups.length;
   const totalProducts = products.length;
-
-  // Low stock products
-  const lowStockProducts = products.filter((p) => p.stock <= p.stockThreshold);
 
   if (isLoading) {
     return (
@@ -146,25 +148,44 @@ export default function Dashboard() {
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
-        <Card className="shadow-sm border-warning">
-          <CardHeader>
-            <CardTitle className="text-warning">Low Stock Alert</CardTitle>
+        <Card className="shadow-sm border-warning/50 bg-warning/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-warning">
+              <AlertTriangle className="h-5 w-5" />
+              Peringatan Stok ({lowStockProducts.length} produk)
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {lowStockProducts.map((product) => (
-              <div key={product.id} className="flex items-center justify-between">
-                <span className="text-sm font-medium">{product.name}</span>
-                <div className="flex items-center gap-3">
-                  <Progress 
-                    value={(product.stock / product.stockThreshold) * 100} 
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {product.stock} / {product.stockThreshold}
-                  </span>
-                </div>
+          <CardContent className="space-y-3">
+            {outOfStockProducts.length > 0 && (
+              <div className="space-y-2">
+                <Badge variant="destructive" className="mb-2">Stok Habis</Badge>
+                {outOfStockProducts.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between p-2 bg-destructive/10 rounded-lg">
+                    <span className="text-sm font-medium text-destructive">{product.name}</span>
+                    <Badge variant="destructive">0 unit</Badge>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {lowStockProducts.filter(p => p.stock > 0).length > 0 && (
+              <div className="space-y-2">
+                <Badge variant="secondary" className="mb-2 bg-warning/20 text-warning-foreground">Stok Menipis</Badge>
+                {lowStockProducts.filter(p => p.stock > 0).map((product) => (
+                  <div key={product.id} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{product.name}</span>
+                    <div className="flex items-center gap-3">
+                      <Progress 
+                        value={Math.min((product.stock / product.stockThreshold) * 100, 100)} 
+                        className="w-24 h-2"
+                      />
+                      <span className="text-sm text-muted-foreground min-w-[60px] text-right">
+                        {product.stock} / {product.stockThreshold}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

@@ -29,13 +29,10 @@ export function AppLayout() {
 
       {/* Mobile Menu */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-foreground">
-            {getPageTitle()}
-          </h1>
+        <div className="flex items-center gap-3">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="shrink-0">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -43,6 +40,9 @@ export function AppLayout() {
               <Sidebar onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
+          <h1 className="text-lg font-semibold text-foreground">
+            {getPageTitle()}
+          </h1>
         </div>
       </div>
 
