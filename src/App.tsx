@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import CostCalculator from "./pages/CostCalculator";
 import Products from "./pages/Products";
 import SalesJournal from "./pages/SalesJournal";
+import BatchProfitability from "./pages/BatchProfitability";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -32,6 +33,7 @@ const App = () => (
                 <Route path="cost-calculator" element={<CostCalculator />} />
                 <Route path="products" element={<Products />} />
                 <Route path="sales-journal" element={<SalesJournal />} />
+                <Route path="batch-profitability" element={<BatchProfitability />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
               <Route path="*" element={<NotFound />} />

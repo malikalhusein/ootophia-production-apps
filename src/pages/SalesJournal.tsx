@@ -3,6 +3,7 @@ import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useProfile } from "@/hooks/useProfile";
+import { useStockAdjustments } from "@/hooks/useStockAdjustments";
 import { Transaction } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,11 +23,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Download, FileText, Plus, FileDown, Files, X, ShoppingCart, FileSpreadsheet } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Download, FileText, Plus, FileDown, Files, X, ShoppingCart, FileSpreadsheet, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
 import { generateInvoicePDF, generateBatchInvoicesPDF } from "@/lib/pdfGenerator";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
+import { EditTransactionDialog } from "@/components/SalesJournal/EditTransactionDialog";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -46,9 +59,14 @@ const statusMap: Record<TransactionStatus, string> = {
 
 export default function SalesJournal() {
   const { lineups } = useLineups();
-  const { products } = useProducts();
-  const { transactions, createTransaction } = useTransactions();
+  const { products, updateProduct } = useProducts();
+  const { transactions, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { profile } = useProfile();
+  const { createAdjustment } = useStockAdjustments();
+
+  // Edit/Delete state
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
   
   // Multi-item transaction support
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([
@@ -84,13 +102,12 @@ export default function SalesJournal() {
     ));
   }, []);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
     
     if (isRndOrPromo) {
-      // For RnD/Promo, create single transaction with manual weight
       if (!formData.lineupId) {
         toast.error("Pilih lineup terlebih dahulu");
         return;
@@ -106,10 +123,9 @@ export default function SalesJournal() {
         description: formData.description,
       };
 
-      createTransaction(transaction);
+      await createTransaction(transaction);
       toast.success("Transaksi berhasil ditambahkan");
     } else {
-      // For sale/bonus, create transaction for each item
       const validItems = transactionItems.filter(item => item.productId && item.quantity > 0);
       
       if (validItems.length === 0) {
@@ -117,7 +133,9 @@ export default function SalesJournal() {
         return;
       }
 
-      validItems.forEach(item => {
+      for (const item of validItems) {
+        const product = products.find(p => p.id === item.productId);
+        
         const transaction: Transaction = {
           id: crypto.randomUUID(),
           date: formData.date,
@@ -127,10 +145,26 @@ export default function SalesJournal() {
           totalValue: 0,
           description: formData.description,
         };
-        createTransaction(transaction);
-      });
+        
+        const result = await createTransaction(transaction);
+        
+        // Auto stock deduction for sales
+        if (formData.status === "sale" && product && result) {
+          const newStock = Math.max(0, product.stock - item.quantity);
+          await createAdjustment({
+            productId: product.id,
+            previousStock: product.stock,
+            newStock,
+            adjustmentType: 'sale',
+            reason: `Penjualan: ${formData.description || 'Transaksi'}`,
+            transactionId: result.id,
+          });
+          updateProduct({ id: product.id, updates: { stock: newStock } });
+        }
+      }
 
       toast.success(`${validItems.length} transaksi berhasil ditambahkan`);
+    }
     }
     
     // Reset form
@@ -142,8 +176,20 @@ export default function SalesJournal() {
       manualWeight: 0,
     });
     setTransactionItems([{ id: crypto.randomUUID(), productId: "", quantity: 1 }]);
-  }, [formData, transactionItems, createTransaction]);
+  }, [formData, transactionItems, createTransaction, products, createAdjustment, updateProduct]);
 
+  const handleEditTransaction = useCallback(async (transaction: Transaction) => {
+    await updateTransaction({ id: transaction.id, updates: transaction });
+    setEditingTransaction(null);
+    toast.success("Transaksi berhasil diperbarui");
+  }, [updateTransaction]);
+
+  const handleDeleteTransaction = useCallback(async () => {
+    if (!deletingTransactionId) return;
+    await deleteTransaction(deletingTransactionId);
+    setDeletingTransactionId(null);
+    toast.success("Transaksi berhasil dihapus");
+  }, [deletingTransactionId, deleteTransaction]);
   const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
 
   // Memoize filtered transactions
