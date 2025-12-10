@@ -4,20 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar, Tag, Package, FileText, Hash } from "lucide-react";
 
 interface EditTransactionDialogProps {
   open: boolean;
@@ -88,24 +93,38 @@ export function EditTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Edit Transaksi</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            Edit Transaksi
+          </DialogTitle>
+          <DialogDescription>
+            Ubah detail transaksi. Perubahan akan dikonfirmasi sebelum disimpan.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Date and Status */}
           <div className="grid gap-4 grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="date">Tanggal</Label>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Tanggal
+              </Label>
               <Input
-                id="date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
                 required
+                className="h-10"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                Status
+              </Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) =>
@@ -117,7 +136,7 @@ export function EditTransactionDialog({
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -131,14 +150,15 @@ export function EditTransactionDialog({
             </div>
           </div>
 
+          {/* Product/Lineup Selection */}
           {isRndOrPromo ? (
-            <div className="space-y-2">
-              <Label>Lineup / Batch</Label>
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50 border">
+              <Label className="text-sm font-medium">Lineup / Batch</Label>
               <Select
                 value={formData.lineupId}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, lineupId: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Pilih lineup" />
                 </SelectTrigger>
                 <SelectContent>
@@ -151,32 +171,50 @@ export function EditTransactionDialog({
               </Select>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label>Produk</Label>
+            <div className="space-y-2 p-4 rounded-lg bg-muted/50 border">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                Produk
+              </Label>
               <Select
                 value={formData.productId}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, productId: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Pilih produk" />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
+                  {lineups.map((lineup) => {
+                    const lineupProducts = products.filter(p => p.lineupId === lineup.id);
+                    if (lineupProducts.length === 0) return null;
+                    return (
+                      <SelectGroup key={lineup.id}>
+                        <SelectLabel className="text-xs">{lineup.name}</SelectLabel>
+                        {lineupProducts.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span>{product.name}</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                Stok: {product.stock}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
           )}
 
+          {/* Quantity */}
           <div className="space-y-2">
-            <Label htmlFor="quantity">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Hash className="h-4 w-4 text-muted-foreground" />
               {isRndOrPromo ? "Jumlah (gram)" : "Kuantitas"}
             </Label>
             <Input
-              id="quantity"
               type="number"
               step={isRndOrPromo ? "0.1" : "1"}
               value={formData.quantity || ""}
@@ -184,26 +222,32 @@ export function EditTransactionDialog({
                 setFormData((prev) => ({ ...prev, quantity: Number(e.target.value) }))
               }
               required
+              className="h-10"
             />
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Keterangan</Label>
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Keterangan
+            </Label>
             <Textarea
-              id="description"
               value={formData.description}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
               rows={2}
+              placeholder="Tambahkan keterangan..."
+              className="resize-none"
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Batal
             </Button>
-            <Button type="submit">Simpan Perubahan</Button>
+            <Button type="submit">Lanjutkan</Button>
           </DialogFooter>
         </form>
       </DialogContent>
