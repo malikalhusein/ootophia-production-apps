@@ -165,7 +165,6 @@ export default function SalesJournal() {
 
       toast.success(`${validItems.length} transaksi berhasil ditambahkan`);
     }
-    }
     
     // Reset form
     setFormData({
@@ -704,15 +703,31 @@ export default function SalesJournal() {
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleGenerateInvoice(transaction)}
-                            className="gap-2 h-8"
-                          >
-                            <FileDown className="h-4 w-4" />
-                            Invoice
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice(transaction)} className="gap-2">
+                                <FileDown className="h-4 w-4" />
+                                Generate Invoice
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setEditingTransaction(transaction)} className="gap-2">
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => setDeletingTransactionId(transaction.id)} 
+                                className="gap-2 text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Hapus
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -723,6 +738,34 @@ export default function SalesJournal() {
           </table>
         </div>
       </Card>
+
+      {/* Edit Transaction Dialog */}
+      <EditTransactionDialog
+        open={!!editingTransaction}
+        onOpenChange={(open) => !open && setEditingTransaction(null)}
+        transaction={editingTransaction}
+        products={products}
+        lineups={lineups}
+        onSave={handleEditTransaction}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingTransactionId} onOpenChange={(open) => !open && setDeletingTransactionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Transaksi akan dihapus secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTransaction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
