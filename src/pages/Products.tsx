@@ -3,14 +3,16 @@ import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useBundles } from "@/hooks/useBundles";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useStockAdjustments } from "@/hooks/useStockAdjustments";
 import { Product, Bundle } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, TrendingUp, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, TrendingUp, Package, History, ArrowUp, ArrowDown, RotateCcw } from "lucide-react";
 import { ProductDialog } from "@/components/Products/ProductDialog";
 import { BundleDialog } from "@/components/Products/BundleDialog";
+import { StockAdjustmentDialog } from "@/components/Products/StockAdjustmentDialog";
 import { 
   calculateProductHPP, 
   calculateCostPerGram, 
@@ -22,18 +24,28 @@ import {
 } from "@/lib/calculations";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 export default function Products() {
   const { lineups, isLoading: lineupsLoading } = useLineups();
   const { products, isLoading: productsLoading, createProduct, updateProduct, deleteProduct } = useProducts();
   const { bundles, isLoading: bundlesLoading, createBundle, updateBundle, deleteBundle } = useBundles();
   const { transactions } = useTransactions();
+  const { adjustments, createAdjustment } = useStockAdjustments();
   
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingBundle, setEditingBundle] = useState<Bundle | null>(null);
-
+  const [stockAdjustmentProduct, setStockAdjustmentProduct] = useState<Product | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
   // Group products by lineup with quota tracking - MUST be before early return
   const productsByLineup = useMemo(() => lineups.map(lineup => {
     const lineupProducts = products.filter(p => p.lineupId === lineup.id);
@@ -100,6 +112,28 @@ export default function Products() {
       toast.success("Bundle deleted successfully");
     }
   };
+
+  const handleStockAdjustment = async (productId: string, newStock: number, reason: string, adjustmentType: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    await createAdjustment({
+      productId,
+      previousStock: product.stock,
+      newStock,
+      adjustmentType: adjustmentType as 'manual' | 'correction',
+      reason,
+    });
+    
+    await updateProduct({ id: productId, updates: { stock: newStock } });
+    toast.success("Stok berhasil diperbarui");
+  };
+
+  // Filter adjustments for history view
+  const productAdjustments = useMemo(() => {
+    if (!historyProduct) return [];
+    return adjustments.filter(adj => adj.productId === historyProduct.id);
+  }, [adjustments, historyProduct]);
 
   if (lineupsLoading || productsLoading || bundlesLoading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
@@ -216,11 +250,28 @@ export default function Products() {
                                 </span>
                               </td>
                               <td className="p-3">
-                                <div className="flex gap-2">
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setStockAdjustmentProduct(product)}
+                                    title="Penyesuaian Stok"
+                                  >
+                                    <Package className="h-4 w-4 text-blue-500" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setHistoryProduct(product)}
+                                    title="Riwayat Stok"
+                                  >
+                                    <History className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => setEditingProduct(product)}
+                                    title="Edit Produk"
                                   >
                                     <Pencil className="h-4 w-4 text-primary" />
                                   </Button>
@@ -228,6 +279,7 @@ export default function Products() {
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleDeleteProduct(product.id)}
+                                    title="Hapus Produk"
                                   >
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
@@ -346,6 +398,84 @@ export default function Products() {
         products={products}
         onSave={editingBundle ? handleUpdateBundle : handleCreateBundle}
       />
+
+      {/* Stock Adjustment Dialog */}
+      <StockAdjustmentDialog
+        open={!!stockAdjustmentProduct}
+        onOpenChange={(open) => !open && setStockAdjustmentProduct(null)}
+        product={stockAdjustmentProduct}
+        onSave={handleStockAdjustment}
+      />
+
+      {/* Stock History Sheet */}
+      <Sheet open={!!historyProduct} onOpenChange={(open) => !open && setHistoryProduct(null)}>
+        <SheetContent className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Riwayat Penyesuaian Stok</SheetTitle>
+            <SheetDescription>{historyProduct?.name}</SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-4">
+            {productAdjustments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Belum ada riwayat penyesuaian stok</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+                {productAdjustments.map((adj) => {
+                  const diff = adj.newStock - adj.previousStock;
+                  const isIncrease = diff > 0;
+                  const typeLabels: Record<string, string> = {
+                    sale: 'Penjualan',
+                    manual: 'Manual',
+                    correction: 'Koreksi',
+                    return: 'Retur',
+                    initial: 'Stok Awal',
+                  };
+                  
+                  return (
+                    <Card key={adj.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          {isIncrease ? (
+                            <ArrowUp className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 text-destructive" />
+                          )}
+                          <Badge variant={isIncrease ? "secondary" : "destructive"}>
+                            {isIncrease ? `+${diff}` : diff}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {typeLabels[adj.adjustmentType] || adj.adjustmentType}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(adj.createdAt).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">{adj.previousStock}</span>
+                        <span>→</span>
+                        <span className="font-semibold">{adj.newStock}</span>
+                      </div>
+                      {adj.reason && (
+                        <p className="text-xs text-muted-foreground">{adj.reason}</p>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
