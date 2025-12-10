@@ -63,6 +63,7 @@ export interface Transaction {
   date: string;
   status: "sale" | "promo" | "rnd" | "bonus";
   productId?: string;
+  bundleId?: string;
   lineupId?: string;
   quantity: number;
   totalValue: number;

@@ -24,6 +24,7 @@ export function useTransactions() {
         date: transaction.date,
         status: transaction.status as 'sale' | 'promo' | 'rnd' | 'bonus',
         productId: transaction.product_id || undefined,
+        bundleId: transaction.bundle_id || undefined,
         lineupId: transaction.lineup_id || undefined,
         quantity: Number(transaction.quantity),
         totalValue: Number(transaction.total_value),
@@ -42,6 +43,7 @@ export function useTransactions() {
           date: transaction.date,
           status: transaction.status,
           product_id: transaction.productId || null,
+          bundle_id: transaction.bundleId || null,
           lineup_id: transaction.lineupId || null,
           quantity: transaction.quantity,
           total_value: transaction.totalValue,
@@ -65,6 +67,7 @@ export function useTransactions() {
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.productId !== undefined) dbUpdates.product_id = updates.productId || null;
+      if (updates.bundleId !== undefined) dbUpdates.bundle_id = updates.bundleId || null;
       if (updates.lineupId !== undefined) dbUpdates.lineup_id = updates.lineupId || null;
       if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
       if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;

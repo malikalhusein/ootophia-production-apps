@@ -337,6 +337,7 @@ export type Database = {
       }
       transactions: {
         Row: {
+          bundle_id: string | null
           created_at: string | null
           date: string
           description: string | null
@@ -349,6 +350,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bundle_id?: string | null
           created_at?: string | null
           date: string
           description?: string | null
@@ -361,6 +363,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bundle_id?: string | null
           created_at?: string | null
           date?: string
           description?: string | null
@@ -373,6 +376,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_lineup_id_fkey"
             columns: ["lineup_id"]
