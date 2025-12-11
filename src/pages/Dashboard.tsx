@@ -3,17 +3,20 @@ import { TrendingUp, Package, DollarSign, Activity, AlertTriangle } from "lucide
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useBundles } from "@/hooks/useBundles";
 import { useInventoryAlerts } from "@/hooks/useInventoryAlerts";
 import { formatCurrency, calculateCostPerGram, calculateWeightForSale } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { SalesSummary } from "@/components/Dashboard/SalesSummary";
 
 export default function Dashboard() {
   const { lineups, isLoading: lineupsLoading } = useLineups();
   const { products, isLoading: productsLoading } = useProducts();
   const { transactions, isLoading: transactionsLoading } = useTransactions();
+  const { bundles, isLoading: bundlesLoading } = useBundles();
 
-  const isLoading = lineupsLoading || productsLoading || transactionsLoading;
+  const isLoading = lineupsLoading || productsLoading || transactionsLoading || bundlesLoading;
 
   // Inventory alerts
   const { lowStockProducts, outOfStockProducts } = useInventoryAlerts(products, productsLoading);
@@ -145,6 +148,9 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Sales Summary */}
+      <SalesSummary transactions={transactions} products={products} bundles={bundles} />
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (

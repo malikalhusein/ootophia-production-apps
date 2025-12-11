@@ -29,13 +29,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers } from "lucide-react";
+import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers, Eye } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
-import { generateInvoicePDF, generateBatchInvoicesPDF } from "@/lib/pdfGenerator";
+import { generateInvoicePDF, generateBatchInvoicesPDF, generateMultiItemInvoicePDF } from "@/lib/pdfGenerator";
+import { prepareInvoiceData, InvoiceData } from "@/lib/invoiceUtils";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { TransactionForm } from "@/components/SalesJournal/TransactionForm";
 import { EditTransactionDialog } from "@/components/SalesJournal/EditTransactionDialog";
 import { EditConfirmationDialog } from "@/components/SalesJournal/EditConfirmationDialog";
+import { InvoicePreviewDialog } from "@/components/SalesJournal/InvoicePreviewDialog";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -59,6 +61,10 @@ export default function SalesJournal() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [pendingEditTransaction, setPendingEditTransaction] = useState<Transaction | null>(null);
   const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  
+  // Invoice preview state
+  const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
+  const [previewTransactions, setPreviewTransactions] = useState<Transaction[]>([]);
 
   const [filter, setFilter] = useState({
     search: "",
@@ -251,14 +257,35 @@ export default function SalesJournal() {
     const unitPrice = getProductPrice(transaction);
     const totalValue = transaction.totalValue > 0 ? transaction.totalValue : unitPrice * transaction.quantity;
     
-    generateInvoicePDF({
-      transaction: { ...transaction, totalValue },
-      businessName: profile?.businessName || "My Coffee Business",
-      productName,
-      unitPrice,
-    });
-    toast.success("Invoice generated successfully");
-  }, [profile, getProductPrice, getItemName]);
+    // Show preview first
+    const invoiceData = prepareInvoiceData(
+      [{ ...transaction, totalValue }],
+      getItemName,
+      getProductPrice
+    );
+    setPreviewInvoiceData(invoiceData);
+    setPreviewTransactions([{ ...transaction, totalValue }]);
+  }, [getProductPrice, getItemName]);
+
+  const handlePreviewPDFGenerate = useCallback(() => {
+    if (!previewInvoiceData || previewTransactions.length === 0) return;
+    
+    if (previewTransactions.length === 1) {
+      const t = previewTransactions[0];
+      generateInvoicePDF({
+        transaction: t,
+        businessName: profile?.businessName || "Ootophia Brewing Labs",
+        productName: getItemName(t),
+        unitPrice: getProductPrice(t),
+      });
+    } else {
+      generateMultiItemInvoicePDF(previewInvoiceData);
+    }
+    
+    setPreviewInvoiceData(null);
+    setPreviewTransactions([]);
+    toast.success("Invoice PDF berhasil di-generate");
+  }, [previewInvoiceData, previewTransactions, profile, getItemName, getProductPrice]);
 
   const handleBatchInvoice = useCallback(() => {
     const selectedTxns = filteredTransactions.filter(t => selectedTransactions.has(t.id));
@@ -266,15 +293,17 @@ export default function SalesJournal() {
       toast.error("Pilih minimal satu transaksi");
       return;
     }
-    generateBatchInvoicesPDF(
-      selectedTxns,
-      profile?.businessName || "My Coffee Business",
-      (t) => getItemName(t),
-      (t) => getProductPrice(t)
-    );
-    toast.success(`${selectedTxns.length} invoices generated`);
-    setSelectedTransactions(new Set());
-  }, [filteredTransactions, selectedTransactions, profile, getProductPrice, getItemName]);
+    
+    // Prepare invoice data with calculated values
+    const txnsWithValues = selectedTxns.map(t => ({
+      ...t,
+      totalValue: t.totalValue > 0 ? t.totalValue : getProductPrice(t) * t.quantity
+    }));
+    
+    const invoiceData = prepareInvoiceData(txnsWithValues, getItemName, getProductPrice);
+    setPreviewInvoiceData(invoiceData);
+    setPreviewTransactions(txnsWithValues);
+  }, [filteredTransactions, selectedTransactions, getProductPrice, getItemName]);
 
   const handleExportCSV = useCallback(() => {
     exportToCSV({
@@ -524,8 +553,8 @@ export default function SalesJournal() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleGenerateInvoice(transaction)} className="gap-2">
-                                  <FileDown className="h-4 w-4" />
-                                  Generate Invoice
+                                  <Eye className="h-4 w-4" />
+                                  Preview Invoice
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setEditingTransaction(transaction)} className="gap-2">
@@ -591,6 +620,19 @@ export default function SalesJournal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invoice Preview Dialog */}
+      <InvoicePreviewDialog
+        open={!!previewInvoiceData}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewInvoiceData(null);
+            setPreviewTransactions([]);
+          }
+        }}
+        invoiceData={previewInvoiceData}
+        onGeneratePDF={handlePreviewPDFGenerate}
+      />
     </div>
   );
 }
