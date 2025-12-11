@@ -79,6 +79,63 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          created_at: string
+          customer_address: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          date: string
+          description: string | null
+          id: string
+          invoice_number: string
+          items: Json
+          status: string
+          subtotal: number
+          total: number
+          transaction_ids: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          invoice_number: string
+          items?: Json
+          status: string
+          subtotal?: number
+          total?: number
+          transaction_ids?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          invoice_number?: string
+          items?: Json
+          status?: string
+          subtotal?: number
+          total?: number
+          transaction_ids?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       lineups: {
         Row: {
           created_at: string | null

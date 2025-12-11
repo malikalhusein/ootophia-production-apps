@@ -222,26 +222,60 @@ export function generateMultiItemInvoicePDF(invoiceData: InvoiceData) {
     day: "numeric",
   });
   
+  let currentY = 58;
+  
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("Tanggal:", 14, 58);
+  doc.text("Tanggal:", 14, currentY);
   doc.setFont("helvetica", "normal");
-  doc.text(invoiceDate, 50, 58);
+  doc.text(invoiceDate, 50, currentY);
+  currentY += 8;
   
   doc.setFont("helvetica", "bold");
-  doc.text("Status:", 14, 66);
+  doc.text("Status:", 14, currentY);
   doc.setFont("helvetica", "normal");
-  doc.text(invoiceData.status, 50, 66);
+  doc.text(invoiceData.status, 50, currentY);
+  currentY += 8;
+  
+  // Customer info if provided
+  if (invoiceData.customer?.name) {
+    currentY += 4;
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(14, currentY - 4, pageWidth - 28, invoiceData.customer.address || invoiceData.customer.phone || invoiceData.customer.email ? 30 : 16, 2, 2, 'F');
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Kepada:", 18, currentY + 4);
+    doc.setFont("helvetica", "normal");
+    doc.text(invoiceData.customer.name, 45, currentY + 4);
+    
+    let customerY = currentY + 10;
+    if (invoiceData.customer.address) {
+      doc.setFontSize(9);
+      doc.text(invoiceData.customer.address, 45, customerY);
+      customerY += 6;
+    }
+    if (invoiceData.customer.phone) {
+      doc.text(invoiceData.customer.phone, 45, customerY);
+      customerY += 6;
+    }
+    if (invoiceData.customer.email) {
+      doc.text(invoiceData.customer.email, 45, customerY);
+    }
+    
+    currentY += invoiceData.customer.address || invoiceData.customer.phone || invoiceData.customer.email ? 34 : 20;
+    doc.setFontSize(10);
+  }
   
   if (invoiceData.description) {
     doc.setFont("helvetica", "bold");
-    doc.text("Keterangan:", 14, 74);
+    doc.text("Keterangan:", 14, currentY);
     doc.setFont("helvetica", "normal");
-    doc.text(invoiceData.description, 50, 74);
+    doc.text(invoiceData.description, 50, currentY);
+    currentY += 10;
   }
   
   // Items table
-  const tableStartY = invoiceData.description ? 85 : 78;
+  const tableStartY = currentY + 5;
   
   autoTable(doc, {
     startY: tableStartY,
