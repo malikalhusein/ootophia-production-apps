@@ -45,21 +45,31 @@ export interface InvoiceItem {
   total: number;
 }
 
+export interface CustomerInfo {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface InvoiceData {
   invoiceNumber: string;
   date: string;
   status: string;
   description: string;
+  customer?: CustomerInfo;
   items: InvoiceItem[];
   subtotal: number;
   total: number;
+  transactionIds: string[];
   businessInfo: typeof BUSINESS_INFO;
 }
 
 export function prepareInvoiceData(
   transactions: Transaction[],
   getItemName: (t: Transaction) => string,
-  getUnitPrice: (t: Transaction) => number
+  getUnitPrice: (t: Transaction) => number,
+  customer?: CustomerInfo
 ): InvoiceData {
   const firstTransaction = transactions[0];
   const invoiceNumber = generateInvoiceNumber(firstTransaction.date, transactions.length);
@@ -90,9 +100,11 @@ export function prepareInvoiceData(
     date: firstTransaction.date,
     status: statusMap[firstTransaction.status] || firstTransaction.status,
     description: firstTransaction.description || "",
+    customer,
     items,
     subtotal,
     total: subtotal,
+    transactionIds: transactions.map(t => t.id),
     businessInfo: BUSINESS_INFO,
   };
 }

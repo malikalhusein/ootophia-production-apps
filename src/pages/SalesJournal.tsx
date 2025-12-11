@@ -5,6 +5,7 @@ import { useBundles } from "@/hooks/useBundles";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useProfile } from "@/hooks/useProfile";
 import { useStockAdjustments } from "@/hooks/useStockAdjustments";
+import { useInvoices } from "@/hooks/useInvoices";
 import { Transaction } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,7 +33,7 @@ import {
 import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers, Eye } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
 import { generateInvoicePDF, generateBatchInvoicesPDF, generateMultiItemInvoicePDF } from "@/lib/pdfGenerator";
-import { prepareInvoiceData, InvoiceData } from "@/lib/invoiceUtils";
+import { prepareInvoiceData, InvoiceData, CustomerInfo } from "@/lib/invoiceUtils";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { TransactionForm } from "@/components/SalesJournal/TransactionForm";
 import { EditTransactionDialog } from "@/components/SalesJournal/EditTransactionDialog";
@@ -56,6 +57,7 @@ export default function SalesJournal() {
   const { transactions, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { profile } = useProfile();
   const { createAdjustment } = useStockAdjustments();
+  const { createInvoice } = useInvoices();
 
   // Edit/Delete state
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -65,6 +67,7 @@ export default function SalesJournal() {
   // Invoice preview state
   const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
   const [previewTransactions, setPreviewTransactions] = useState<Transaction[]>([]);
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
 
   const [filter, setFilter] = useState({
     search: "",
@@ -267,8 +270,11 @@ export default function SalesJournal() {
     setPreviewTransactions([{ ...transaction, totalValue }]);
   }, [getProductPrice, getItemName]);
 
-  const handlePreviewPDFGenerate = useCallback(() => {
+  const handlePreviewPDFGenerate = useCallback((customer?: CustomerInfo) => {
     if (!previewInvoiceData || previewTransactions.length === 0) return;
+    
+    // Update invoice data with customer info
+    const invoiceWithCustomer = { ...previewInvoiceData, customer };
     
     if (previewTransactions.length === 1) {
       const t = previewTransactions[0];
@@ -279,13 +285,41 @@ export default function SalesJournal() {
         unitPrice: getProductPrice(t),
       });
     } else {
-      generateMultiItemInvoicePDF(previewInvoiceData);
+      generateMultiItemInvoicePDF(invoiceWithCustomer);
     }
     
     setPreviewInvoiceData(null);
     setPreviewTransactions([]);
     toast.success("Invoice PDF berhasil di-generate");
   }, [previewInvoiceData, previewTransactions, profile, getItemName, getProductPrice]);
+
+  const handleSaveInvoice = useCallback(async (customer?: CustomerInfo) => {
+    if (!previewInvoiceData) return;
+    
+    setIsSavingInvoice(true);
+    try {
+      await createInvoice({
+        invoiceNumber: previewInvoiceData.invoiceNumber,
+        date: previewInvoiceData.date,
+        status: previewInvoiceData.status,
+        description: previewInvoiceData.description,
+        customerName: customer?.name,
+        customerAddress: customer?.address,
+        customerPhone: customer?.phone,
+        customerEmail: customer?.email,
+        items: previewInvoiceData.items,
+        subtotal: previewInvoiceData.subtotal,
+        total: previewInvoiceData.total,
+        transactionIds: previewInvoiceData.transactionIds,
+      });
+      toast.success("Invoice berhasil disimpan ke riwayat");
+    } catch (error) {
+      console.error("Error saving invoice:", error);
+      toast.error("Gagal menyimpan invoice");
+    } finally {
+      setIsSavingInvoice(false);
+    }
+  }, [previewInvoiceData, createInvoice]);
 
   const handleBatchInvoice = useCallback(() => {
     const selectedTxns = filteredTransactions.filter(t => selectedTransactions.has(t.id));
@@ -632,6 +666,8 @@ export default function SalesJournal() {
         }}
         invoiceData={previewInvoiceData}
         onGeneratePDF={handlePreviewPDFGenerate}
+        onSaveInvoice={handleSaveInvoice}
+        isSaving={isSavingInvoice}
       />
     </div>
   );
