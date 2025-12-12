@@ -13,6 +13,8 @@ import Products from "./pages/Products";
 import SalesJournal from "./pages/SalesJournal";
 import BatchProfitability from "./pages/BatchProfitability";
 import Settings from "./pages/Settings";
+import InvoiceHistory from "./pages/InvoiceHistory";
+import Customers from "./pages/Customers";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +36,8 @@ const App = () => (
                 <Route path="products" element={<Products />} />
                 <Route path="sales-journal" element={<SalesJournal />} />
                 <Route path="batch-profitability" element={<BatchProfitability />} />
+                <Route path="invoice-history" element={<InvoiceHistory />} />
+                <Route path="customers" element={<Customers />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
               <Route path="*" element={<NotFound />} />

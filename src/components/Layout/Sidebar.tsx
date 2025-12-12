@@ -9,7 +9,9 @@ import {
   LogOut,
   Moon,
   Sun,
-  BarChart3
+  BarChart3,
+  FileText,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +28,8 @@ const navigation = [
   { name: "Products", href: "/products", icon: Package },
   { name: "Sales Journal", href: "/sales-journal", icon: Receipt },
   { name: "Profitability", href: "/batch-profitability", icon: BarChart3 },
+  { name: "Riwayat Invoice", href: "/invoice-history", icon: FileText },
+  { name: "Pelanggan", href: "/customers", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

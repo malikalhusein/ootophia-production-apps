@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers, Eye } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
-import { generateInvoicePDF, generateBatchInvoicesPDF, generateMultiItemInvoicePDF } from "@/lib/pdfGenerator";
+import { generateInvoicePDF } from "@/lib/pdfGenerator";
 import { prepareInvoiceData, InvoiceData, CustomerInfo } from "@/lib/invoiceUtils";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { TransactionForm } from "@/components/SalesJournal/TransactionForm";
@@ -276,17 +276,7 @@ export default function SalesJournal() {
     // Update invoice data with customer info
     const invoiceWithCustomer = { ...previewInvoiceData, customer };
     
-    if (previewTransactions.length === 1) {
-      const t = previewTransactions[0];
-      generateInvoicePDF({
-        transaction: t,
-        businessName: profile?.businessName || "Ootophia Brewing Labs",
-        productName: getItemName(t),
-        unitPrice: getProductPrice(t),
-      });
-    } else {
-      generateMultiItemInvoicePDF(invoiceWithCustomer);
-    }
+    generateInvoicePDF(invoiceWithCustomer);
     
     setPreviewInvoiceData(null);
     setPreviewTransactions([]);

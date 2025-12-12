@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Mail, Building2, CreditCard, Smartphone, User, MapPin, Phone, Save, History } from "lucide-react";
+import { Download, Mail, Building2, CreditCard, Smartphone, User, MapPin, Phone, Save, History, Printer } from "lucide-react";
 import { InvoiceData, CustomerInfo } from "@/lib/invoiceUtils";
 import { formatCurrency } from "@/lib/calculations";
 
@@ -21,6 +21,7 @@ interface InvoicePreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   invoiceData: InvoiceData | null;
   onGeneratePDF: (customer?: CustomerInfo) => void;
+  onPrint?: (customer?: CustomerInfo) => void;
   onSaveInvoice?: (customer?: CustomerInfo) => void;
   isSaving?: boolean;
 }
@@ -30,6 +31,7 @@ export function InvoicePreviewDialog({
   onOpenChange,
   invoiceData,
   onGeneratePDF,
+  onPrint,
   onSaveInvoice,
   isSaving = false,
 }: InvoicePreviewDialogProps) {
@@ -51,6 +53,13 @@ export function InvoicePreviewDialog({
   const handleGeneratePDF = () => {
     const customerData = customer.name ? customer : undefined;
     onGeneratePDF(customerData);
+  };
+
+  const handlePrint = () => {
+    if (onPrint) {
+      const customerData = customer.name ? customer : undefined;
+      onPrint(customerData);
+    }
   };
 
   const handleSaveInvoice = () => {
@@ -318,6 +327,16 @@ export function InvoicePreviewDialog({
             >
               <Save className="h-4 w-4" />
               {isSaving ? "Menyimpan..." : "Simpan ke Riwayat"}
+            </Button>
+          )}
+          {onPrint && (
+            <Button 
+              variant="outline"
+              onClick={handlePrint}
+              className="gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print
             </Button>
           )}
           <Button 
