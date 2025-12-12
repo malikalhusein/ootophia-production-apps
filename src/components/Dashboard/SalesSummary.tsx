@@ -50,8 +50,8 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
   }, [transactions, products, bundles]);
 
   const pieData = [
-    { name: "Produk Individual", value: salesData.individual.revenue, color: "#cca23a" },
-    { name: "Bundle Produk", value: salesData.bundle.revenue, color: "#420d1d" },
+    { name: "Produk Individual", value: salesData.individual.revenue, color: "hsl(38, 75%, 52%)" },
+    { name: "Bundle Produk", value: salesData.bundle.revenue, color: "hsl(350, 65%, 25%)" },
   ].filter(d => d.value > 0);
 
   return (
@@ -65,15 +65,15 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Individual Products */}
-          <Card className="bg-[#cca23a]/10 border-[#cca23a]/30">
+          <Card className="bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/5 dark:border-amber-500/20 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-[#cca23a]/20 rounded-full">
-                  <Package className="h-5 w-5 text-[#cca23a]" />
+                <div className="p-3 bg-amber-500/20 dark:bg-amber-500/10 rounded-full transition-colors">
+                  <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Produk Individual</p>
-                  <p className="text-xl font-bold">{formatCurrency(salesData.individual.revenue)}</p>
+                  <p className="text-xl font-bold text-foreground">{formatCurrency(salesData.individual.revenue)}</p>
                   <p className="text-xs text-muted-foreground">
                     {salesData.individual.count} unit • {salesData.individual.transactions} transaksi
                   </p>
@@ -83,15 +83,15 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
           </Card>
 
           {/* Bundle Products */}
-          <Card className="bg-[#420d1d]/10 border-[#420d1d]/30">
+          <Card className="bg-rose-900/10 border-rose-900/30 dark:bg-rose-500/5 dark:border-rose-500/20 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-[#420d1d]/20 rounded-full">
-                  <Layers className="h-5 w-5 text-[#420d1d]" />
+                <div className="p-3 bg-rose-900/20 dark:bg-rose-500/10 rounded-full transition-colors">
+                  <Layers className="h-5 w-5 text-rose-900 dark:text-rose-400" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Bundle Produk</p>
-                  <p className="text-xl font-bold">{formatCurrency(salesData.bundle.revenue)}</p>
+                  <p className="text-xl font-bold text-foreground">{formatCurrency(salesData.bundle.revenue)}</p>
                   <p className="text-xs text-muted-foreground">
                     {salesData.bundle.count} bundle • {salesData.bundle.transactions} transaksi
                   </p>
