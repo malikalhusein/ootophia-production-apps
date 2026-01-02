@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Mail, Building2, CreditCard, Smartphone, User, MapPin, Phone, Save, History, Printer } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Download, Mail, Building2, CreditCard, Smartphone, User, MapPin, Phone, Save, History, Printer, Users } from "lucide-react";
 import { InvoiceData, CustomerInfo } from "@/lib/invoiceUtils";
 import { formatCurrency } from "@/lib/calculations";
+import { useCustomers, Customer } from "@/hooks/useCustomers";
 
 interface InvoicePreviewDialogProps {
   open: boolean;
@@ -35,12 +43,39 @@ export function InvoicePreviewDialog({
   onSaveInvoice,
   isSaving = false,
 }: InvoicePreviewDialogProps) {
+  const { customers } = useCustomers();
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [customer, setCustomer] = useState<CustomerInfo>({
     name: "",
     address: "",
     phone: "",
     email: "",
   });
+
+  // Reset customer when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedCustomerId("");
+      setCustomer({ name: "", address: "", phone: "", email: "" });
+    }
+  }, [open]);
+
+  // Update customer fields when a saved customer is selected
+  useEffect(() => {
+    if (selectedCustomerId && selectedCustomerId !== "manual") {
+      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+      if (selectedCustomer) {
+        setCustomer({
+          name: selectedCustomer.name,
+          address: selectedCustomer.address || "",
+          phone: selectedCustomer.phone || "",
+          email: selectedCustomer.email || "",
+        });
+      }
+    } else if (selectedCustomerId === "manual") {
+      setCustomer({ name: "", address: "", phone: "", email: "" });
+    }
+  }, [selectedCustomerId, customers]);
 
   if (!invoiceData) return null;
 
@@ -71,7 +106,7 @@ export function InvoicePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
@@ -86,6 +121,30 @@ export function InvoicePreviewDialog({
           </TabsList>
 
           <TabsContent value="customer" className="space-y-4 mt-4">
+            {/* Customer Selection */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Pilih Pelanggan
+              </Label>
+              <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Pilih pelanggan tersimpan atau input manual..." />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="manual">Input Manual</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.isMember && <Badge variant="secondary" className="ml-2 text-xs">Member</Badge>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
+            {/* Customer Details Form */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="customer-name" className="flex items-center gap-2">
@@ -97,6 +156,7 @@ export function InvoicePreviewDialog({
                   placeholder="Masukkan nama pelanggan"
                   value={customer.name}
                   onChange={(e) => setCustomer(prev => ({ ...prev, name: e.target.value }))}
+                  className="bg-background"
                 />
               </div>
               <div className="space-y-2">
@@ -109,6 +169,7 @@ export function InvoicePreviewDialog({
                   placeholder="+62xxx"
                   value={customer.phone}
                   onChange={(e) => setCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                  className="bg-background"
                 />
               </div>
               <div className="space-y-2">
@@ -122,6 +183,7 @@ export function InvoicePreviewDialog({
                   placeholder="email@example.com"
                   value={customer.email}
                   onChange={(e) => setCustomer(prev => ({ ...prev, email: e.target.value }))}
+                  className="bg-background"
                 />
               </div>
               <div className="space-y-2">
@@ -134,6 +196,7 @@ export function InvoicePreviewDialog({
                   placeholder="Alamat pelanggan"
                   value={customer.address}
                   onChange={(e) => setCustomer(prev => ({ ...prev, address: e.target.value }))}
+                  className="bg-background"
                 />
               </div>
             </div>
@@ -144,7 +207,7 @@ export function InvoicePreviewDialog({
 
           <TabsContent value="preview" className="mt-4">
             {/* Invoice Preview */}
-            <div className="bg-white rounded-lg border shadow-sm">
+            <div className="bg-card rounded-lg border border-border shadow-sm transition-colors">
               {/* Header with brand colors */}
               <div 
                 className="p-6 text-white rounded-t-lg"
@@ -171,7 +234,7 @@ export function InvoicePreviewDialog({
                 <div className="flex flex-wrap justify-between gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Tanggal</p>
-                    <p className="font-medium">{invoiceDate}</p>
+                    <p className="font-medium text-foreground">{invoiceDate}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -189,13 +252,13 @@ export function InvoicePreviewDialog({
 
                 {/* Customer Info if provided */}
                 {customer.name && (
-                  <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                    <p className="text-sm font-semibold flex items-center gap-2">
+                  <div className="p-4 rounded-lg bg-muted/50 space-y-2 transition-colors">
+                    <p className="text-sm font-semibold flex items-center gap-2 text-foreground">
                       <User className="h-4 w-4" />
                       Kepada:
                     </p>
                     <div className="pl-6 space-y-1">
-                      <p className="font-medium">{customer.name}</p>
+                      <p className="font-medium text-foreground">{customer.name}</p>
                       {customer.address && (
                         <p className="text-sm text-muted-foreground">{customer.address}</p>
                       )}
@@ -212,7 +275,7 @@ export function InvoicePreviewDialog({
                 {invoiceData.description && (
                   <div>
                     <p className="text-sm text-muted-foreground">Keterangan</p>
-                    <p className="font-medium">{invoiceData.description}</p>
+                    <p className="font-medium text-foreground">{invoiceData.description}</p>
                   </div>
                 )}
 
@@ -226,19 +289,19 @@ export function InvoicePreviewDialog({
                         className="text-left"
                         style={{ backgroundColor: `${invoiceData.businessInfo.brandColors.primary}10` }}
                       >
-                        <th className="p-3 font-semibold">Produk</th>
-                        <th className="p-3 font-semibold text-center">Qty</th>
-                        <th className="p-3 font-semibold text-right">Harga</th>
-                        <th className="p-3 font-semibold text-right">Total</th>
+                        <th className="p-3 font-semibold text-foreground">Produk</th>
+                        <th className="p-3 font-semibold text-foreground text-center">Qty</th>
+                        <th className="p-3 font-semibold text-foreground text-right">Harga</th>
+                        <th className="p-3 font-semibold text-foreground text-right">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-border">
                       {invoiceData.items.map((item, index) => (
                         <tr key={index}>
-                          <td className="p-3">{item.name}</td>
-                          <td className="p-3 text-center">{item.quantity} {item.unit}</td>
-                          <td className="p-3 text-right">{item.unitPrice > 0 ? formatCurrency(item.unitPrice) : "-"}</td>
-                          <td className="p-3 text-right font-medium">{item.total > 0 ? formatCurrency(item.total) : "-"}</td>
+                          <td className="p-3 text-foreground">{item.name}</td>
+                          <td className="p-3 text-center text-foreground">{item.quantity} {item.unit}</td>
+                          <td className="p-3 text-right text-foreground">{item.unitPrice > 0 ? formatCurrency(item.unitPrice) : "-"}</td>
+                          <td className="p-3 text-right font-medium text-foreground">{item.total > 0 ? formatCurrency(item.total) : "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -252,7 +315,7 @@ export function InvoicePreviewDialog({
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatCurrency(invoiceData.subtotal)}</span>
+                      <span className="text-foreground">{formatCurrency(invoiceData.subtotal)}</span>
                     </div>
                     <div 
                       className="flex justify-between text-lg font-bold p-2 rounded"
@@ -271,7 +334,7 @@ export function InvoicePreviewDialog({
 
                 {/* Payment Info */}
                 <div className="space-y-3">
-                  <h3 className="font-semibold flex items-center gap-2">
+                  <h3 className="font-semibold flex items-center gap-2 text-foreground">
                     <CreditCard className="h-4 w-4" />
                     Pembayaran
                   </h3>
@@ -279,7 +342,7 @@ export function InvoicePreviewDialog({
                     {invoiceData.businessInfo.paymentMethods.map((method, index) => (
                       <div 
                         key={index}
-                        className="p-3 rounded-lg border"
+                        className="p-3 rounded-lg border border-border bg-card transition-colors"
                         style={{ borderColor: `${invoiceData.businessInfo.brandColors.secondary}50` }}
                       >
                         <div className="flex items-center gap-2">
@@ -288,7 +351,7 @@ export function InvoicePreviewDialog({
                           ) : (
                             <Smartphone className="h-4 w-4 text-muted-foreground" />
                           )}
-                          <span className="text-sm font-medium">{method.type}</span>
+                          <span className="text-sm font-medium text-foreground">{method.type}</span>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">{method.details}</p>
                       </div>
@@ -298,7 +361,7 @@ export function InvoicePreviewDialog({
 
                 {/* Footer */}
                 <div 
-                  className="text-center text-sm p-4 rounded-lg"
+                  className="text-center text-sm p-4 rounded-lg transition-colors"
                   style={{ backgroundColor: `${invoiceData.businessInfo.brandColors.primary}05` }}
                 >
                   <p className="text-muted-foreground">Terima kasih atas kepercayaan Anda</p>
