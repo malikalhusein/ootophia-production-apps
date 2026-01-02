@@ -55,9 +55,9 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
   ].filter(d => d.value > 0);
 
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm bg-card border-border transition-colors">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
           <ShoppingBag className="h-5 w-5 text-primary" />
           Ringkasan Penjualan
         </CardTitle>
@@ -65,15 +65,15 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Individual Products */}
-          <Card className="bg-amber-500/10 border-amber-500/30 dark:bg-amber-500/5 dark:border-amber-500/20 transition-colors">
+          <Card className="bg-amber-500/10 dark:bg-amber-400/10 border-amber-500/30 dark:border-amber-400/20 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-500/20 dark:bg-amber-500/10 rounded-full transition-colors">
-                  <Package className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <div className="p-3 bg-amber-500/20 dark:bg-amber-400/20 rounded-full transition-colors">
+                  <Package className="h-5 w-5 text-amber-600 dark:text-amber-400 transition-colors" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Produk Individual</p>
-                  <p className="text-xl font-bold text-foreground">{formatCurrency(salesData.individual.revenue)}</p>
+                  <p className="text-xl font-bold text-foreground transition-colors">{formatCurrency(salesData.individual.revenue)}</p>
                   <p className="text-xs text-muted-foreground">
                     {salesData.individual.count} unit • {salesData.individual.transactions} transaksi
                   </p>
@@ -83,15 +83,15 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
           </Card>
 
           {/* Bundle Products */}
-          <Card className="bg-rose-900/10 border-rose-900/30 dark:bg-rose-500/5 dark:border-rose-500/20 transition-colors">
+          <Card className="bg-rose-500/10 dark:bg-rose-400/10 border-rose-500/30 dark:border-rose-400/20 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-rose-900/20 dark:bg-rose-500/10 rounded-full transition-colors">
-                  <Layers className="h-5 w-5 text-rose-900 dark:text-rose-400" />
+                <div className="p-3 bg-rose-500/20 dark:bg-rose-400/20 rounded-full transition-colors">
+                  <Layers className="h-5 w-5 text-rose-700 dark:text-rose-400 transition-colors" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Bundle Produk</p>
-                  <p className="text-xl font-bold text-foreground">{formatCurrency(salesData.bundle.revenue)}</p>
+                  <p className="text-xl font-bold text-foreground transition-colors">{formatCurrency(salesData.bundle.revenue)}</p>
                   <p className="text-xs text-muted-foreground">
                     {salesData.bundle.count} bundle • {salesData.bundle.transactions} transaksi
                   </p>
@@ -101,15 +101,15 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
           </Card>
 
           {/* Total */}
-          <Card className="bg-primary/10 border-primary/30">
+          <Card className="bg-primary/10 border-primary/30 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-primary/20 rounded-full">
+                <div className="p-3 bg-primary/20 rounded-full transition-colors">
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Penjualan</p>
-                  <p className="text-xl font-bold">{formatCurrency(salesData.total.revenue)}</p>
+                  <p className="text-xl font-bold text-foreground transition-colors">{formatCurrency(salesData.total.revenue)}</p>
                   <p className="text-xs text-muted-foreground">
                     {salesData.total.transactions} transaksi
                   </p>

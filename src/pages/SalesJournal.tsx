@@ -271,17 +271,23 @@ export default function SalesJournal() {
   }, [getProductPrice, getItemName]);
 
   const handlePreviewPDFGenerate = useCallback((customer?: CustomerInfo) => {
-    if (!previewInvoiceData || previewTransactions.length === 0) return;
+    if (!previewInvoiceData) return;
     
-    // Update invoice data with customer info
     const invoiceWithCustomer = { ...previewInvoiceData, customer };
-    
     generateInvoicePDF(invoiceWithCustomer);
     
     setPreviewInvoiceData(null);
     setPreviewTransactions([]);
     toast.success("Invoice PDF berhasil di-generate");
-  }, [previewInvoiceData, previewTransactions, profile, getItemName, getProductPrice]);
+  }, [previewInvoiceData]);
+
+  const handlePrintInvoice = useCallback((customer?: CustomerInfo) => {
+    if (!previewInvoiceData) return;
+    
+    const invoiceWithCustomer = { ...previewInvoiceData, customer };
+    generateInvoicePDF(invoiceWithCustomer, true);
+    toast.success("Invoice siap dicetak");
+  }, [previewInvoiceData]);
 
   const handleSaveInvoice = useCallback(async (customer?: CustomerInfo) => {
     if (!previewInvoiceData) return;
@@ -656,6 +662,7 @@ export default function SalesJournal() {
         }}
         invoiceData={previewInvoiceData}
         onGeneratePDF={handlePreviewPDFGenerate}
+        onPrint={handlePrintInvoice}
         onSaveInvoice={handleSaveInvoice}
         isSaving={isSavingInvoice}
       />

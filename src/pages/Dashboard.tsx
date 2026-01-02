@@ -45,7 +45,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm">
+        <Card className="shadow-sm bg-card border-border transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Revenue
@@ -53,11 +53,11 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-foreground transition-colors">{formatCurrency(totalRevenue)}</div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm bg-card border-border transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Units Sold
@@ -65,11 +65,11 @@ export default function Dashboard() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{unitsSold}</div>
+            <div className="text-2xl font-bold text-foreground transition-colors">{unitsSold}</div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm bg-card border-border transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Active Batches
@@ -77,11 +77,11 @@ export default function Dashboard() {
             <Activity className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeLineups}</div>
+            <div className="text-2xl font-bold text-foreground transition-colors">{activeLineups}</div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm bg-card border-border transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total Products
@@ -89,15 +89,15 @@ export default function Dashboard() {
             <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalProducts}</div>
+            <div className="text-2xl font-bold text-foreground transition-colors">{totalProducts}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Inventory Overview */}
-      <Card className="shadow-sm">
+      <Card className="shadow-sm bg-card border-border transition-colors">
         <CardHeader>
-          <CardTitle>Inventory Overview</CardTitle>
+          <CardTitle className="text-foreground transition-colors">Inventory Overview</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {lineups.length === 0 ? (
@@ -111,16 +111,16 @@ export default function Dashboard() {
               const linkedProducts = products.filter((p) => p.lineupId === lineup.id);
 
               return (
-                <div key={lineup.id} className="space-y-2 border-b border-border pb-4 last:border-0">
+                <div key={lineup.id} className="space-y-2 border-b border-border pb-4 last:border-0 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-foreground">{lineup.name}</h4>
+                      <h4 className="font-semibold text-foreground transition-colors">{lineup.name}</h4>
                       <p className="text-sm text-muted-foreground">
                         {lineup.identity.origin} • {lineup.identity.variety}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{formatCurrency(costPerGram)}/g</p>
+                      <p className="text-sm font-medium text-foreground transition-colors">{formatCurrency(costPerGram)}/g</p>
                       <p className="text-xs text-muted-foreground">
                         {weightForSale.toFixed(0)}g available
                       </p>
@@ -132,10 +132,10 @@ export default function Dashboard() {
                       {linkedProducts.map((product) => (
                         <div key={product.id} className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">{product.name}</span>
-                          <span className="font-medium">
+                          <span className="font-medium text-foreground transition-colors">
                             {product.stock} units
                             {product.stock <= product.stockThreshold && (
-                              <span className="ml-2 text-xs text-warning">Low Stock</span>
+                              <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">Low Stock</span>
                             )}
                           </span>
                         </div>
@@ -154,9 +154,9 @@ export default function Dashboard() {
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
-        <Card className="shadow-sm border-warning/50 bg-warning/5">
+        <Card className="shadow-sm border-amber-500/50 dark:border-amber-400/50 bg-amber-500/5 dark:bg-amber-400/5 transition-colors">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-warning">
+            <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400 transition-colors">
               <AlertTriangle className="h-5 w-5" />
               Peringatan Stok ({lowStockProducts.length} produk)
             </CardTitle>
@@ -166,7 +166,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Badge variant="destructive" className="mb-2">Stok Habis</Badge>
                 {outOfStockProducts.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-2 bg-destructive/10 rounded-lg">
+                  <div key={product.id} className="flex items-center justify-between p-2 bg-destructive/10 rounded-lg transition-colors">
                     <span className="text-sm font-medium text-destructive">{product.name}</span>
                     <Badge variant="destructive">0 unit</Badge>
                   </div>
@@ -175,10 +175,10 @@ export default function Dashboard() {
             )}
             {lowStockProducts.filter(p => p.stock > 0).length > 0 && (
               <div className="space-y-2">
-                <Badge variant="secondary" className="mb-2 bg-warning/20 text-warning-foreground">Stok Menipis</Badge>
+                <Badge variant="secondary" className="mb-2 bg-amber-500/20 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 transition-colors">Stok Menipis</Badge>
                 {lowStockProducts.filter(p => p.stock > 0).map((product) => (
                   <div key={product.id} className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{product.name}</span>
+                    <span className="text-sm font-medium text-foreground transition-colors">{product.name}</span>
                     <div className="flex items-center gap-3">
                       <Progress 
                         value={Math.min((product.stock / product.stockThreshold) * 100, 100)} 
