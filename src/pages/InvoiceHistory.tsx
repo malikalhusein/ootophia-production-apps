@@ -49,49 +49,57 @@ export default function InvoiceHistory() {
     );
   });
 
-  const handleDownload = (invoice: Invoice) => {
-    const invoiceData = {
+  const prepareInvoiceDataFromHistory = (invoice: Invoice) => {
+    // Parse items from JSON if needed
+    const items = Array.isArray(invoice.items) 
+      ? invoice.items.map((item: any) => ({
+          name: item.name || "",
+          quantity: item.quantity || 0,
+          unit: item.unit || "pcs",
+          unitPrice: item.unitPrice || 0,
+          total: item.total || 0,
+        }))
+      : [];
+
+    return {
       invoiceNumber: invoice.invoiceNumber,
       date: invoice.date,
       status: invoice.status,
       description: invoice.description || "",
       customer: invoice.customerName ? {
         name: invoice.customerName,
-        address: invoice.customerAddress,
-        phone: invoice.customerPhone,
-        email: invoice.customerEmail,
+        address: invoice.customerAddress || undefined,
+        phone: invoice.customerPhone || undefined,
+        email: invoice.customerEmail || undefined,
       } : undefined,
-      items: invoice.items,
+      items,
       subtotal: invoice.subtotal,
       total: invoice.total,
-      transactionIds: invoice.transactionIds,
+      transactionIds: invoice.transactionIds || [],
       businessInfo: BUSINESS_INFO,
     };
+  };
 
-    generateInvoicePDF(invoiceData);
-    toast.success("Invoice berhasil diunduh");
+  const handleDownload = (invoice: Invoice) => {
+    try {
+      const invoiceData = prepareInvoiceDataFromHistory(invoice);
+      generateInvoicePDF(invoiceData, false);
+      toast.success("Invoice berhasil diunduh");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Gagal mengunduh invoice");
+    }
   };
 
   const handlePrint = (invoice: Invoice) => {
-    const invoiceData = {
-      invoiceNumber: invoice.invoiceNumber,
-      date: invoice.date,
-      status: invoice.status,
-      description: invoice.description || "",
-      customer: invoice.customerName ? {
-        name: invoice.customerName,
-        address: invoice.customerAddress,
-        phone: invoice.customerPhone,
-        email: invoice.customerEmail,
-      } : undefined,
-      items: invoice.items,
-      subtotal: invoice.subtotal,
-      total: invoice.total,
-      transactionIds: invoice.transactionIds,
-      businessInfo: BUSINESS_INFO,
-    };
-
-    generateInvoicePDF(invoiceData, true);
+    try {
+      const invoiceData = prepareInvoiceDataFromHistory(invoice);
+      generateInvoicePDF(invoiceData, true);
+      toast.success("Membuka print dialog...");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Gagal mencetak invoice");
+    }
   };
 
   const handleDeleteClick = (invoice: Invoice) => {
