@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { InvoiceData, BUSINESS_INFO } from "./invoiceUtils";
 import { formatCurrency } from "./calculations";
 
@@ -115,7 +115,7 @@ export function generateInvoicePDF(invoiceData: InvoiceData, printMode = false) 
     item.total > 0 ? formatIDR(item.total) : "-",
   ]);
   
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [["Produk", "Qty", "Harga Satuan", "Total"]],
     body: tableData,
@@ -141,7 +141,7 @@ export function generateInvoicePDF(invoiceData: InvoiceData, printMode = false) 
     margin: { left: 14, right: 14 },
   });
   
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  yPos = (doc as any).lastAutoTable?.finalY + 10 || yPos + 50;
   
   // Totals
   doc.setFillColor(204, 162, 58); // #cca23a
