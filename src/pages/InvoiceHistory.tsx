@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Search, Download, Trash2, MoreHorizontal, Eye, Printer, User } from "lucide-react";
+import { FileText, Search, Download, Trash2, MoreHorizontal, Eye, Printer, User, FileSpreadsheet } from "lucide-react";
 import { useInvoices, Invoice } from "@/hooks/useInvoices";
 import { formatCurrency } from "@/lib/calculations";
 import { generateInvoicePDF } from "@/lib/pdfGenerator";
@@ -120,6 +120,86 @@ export default function InvoiceHistory() {
     setInvoiceToDelete(null);
   };
 
+  const handleExportCSV = () => {
+    if (filteredInvoices.length === 0) {
+      toast.error("Tidak ada invoice untuk di-export");
+      return;
+    }
+
+    const headers = ["No. Invoice", "Tanggal", "Pelanggan", "Email", "Telepon", "Status", "Subtotal", "Total"];
+    const rows = filteredInvoices.map(invoice => [
+      invoice.invoiceNumber,
+      formatDate(invoice.date),
+      invoice.customerName || "-",
+      invoice.customerEmail || "-",
+      invoice.customerPhone || "-",
+      invoice.status,
+      invoice.subtotal.toString(),
+      invoice.total.toString(),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `daftar-invoice-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    toast.success("Daftar invoice berhasil di-export ke CSV");
+  };
+
+  const handleExportExcel = () => {
+    if (filteredInvoices.length === 0) {
+      toast.error("Tidak ada invoice untuk di-export");
+      return;
+    }
+
+    // Create Excel-compatible XML
+    const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Daftar Invoice">
+    <Table>
+      <Row>
+        <Cell><Data ss:Type="String">No. Invoice</Data></Cell>
+        <Cell><Data ss:Type="String">Tanggal</Data></Cell>
+        <Cell><Data ss:Type="String">Pelanggan</Data></Cell>
+        <Cell><Data ss:Type="String">Email</Data></Cell>
+        <Cell><Data ss:Type="String">Telepon</Data></Cell>
+        <Cell><Data ss:Type="String">Status</Data></Cell>
+        <Cell><Data ss:Type="String">Subtotal</Data></Cell>
+        <Cell><Data ss:Type="String">Total</Data></Cell>
+      </Row>
+      ${filteredInvoices.map(invoice => `
+      <Row>
+        <Cell><Data ss:Type="String">${invoice.invoiceNumber}</Data></Cell>
+        <Cell><Data ss:Type="String">${formatDate(invoice.date)}</Data></Cell>
+        <Cell><Data ss:Type="String">${invoice.customerName || "-"}</Data></Cell>
+        <Cell><Data ss:Type="String">${invoice.customerEmail || "-"}</Data></Cell>
+        <Cell><Data ss:Type="String">${invoice.customerPhone || "-"}</Data></Cell>
+        <Cell><Data ss:Type="String">${invoice.status}</Data></Cell>
+        <Cell><Data ss:Type="Number">${invoice.subtotal}</Data></Cell>
+        <Cell><Data ss:Type="Number">${invoice.total}</Data></Cell>
+      </Row>`).join("")}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+    const blob = new Blob([xmlContent], { type: "application/vnd.ms-excel" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `daftar-invoice-${new Date().toISOString().split('T')[0]}.xls`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    toast.success("Daftar invoice berhasil di-export ke Excel");
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("id-ID", {
       day: "numeric",
@@ -152,14 +232,34 @@ export default function InvoiceHistory() {
               <FileText className="h-5 w-5 text-primary" />
               Daftar Invoice ({filteredInvoices.length})
             </CardTitle>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Cari invoice..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Cari invoice..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    Export CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportExcel} className="gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Export Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardHeader>

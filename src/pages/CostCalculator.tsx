@@ -37,6 +37,7 @@ export default function CostCalculator() {
         greenBeansPrice: 0,
         greenBeansShipping: 0,
         roastingService: 0,
+        roastingServiceType: "perKg" as const,
         roastingTransport: 0,
       },
       roastLogs: [],

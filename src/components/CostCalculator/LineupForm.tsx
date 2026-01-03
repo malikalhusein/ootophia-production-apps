@@ -106,7 +106,7 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
     }));
   }, []);
 
-  const handleCostsChange = useCallback((field: string, value: number) => {
+  const handleCostsChange = useCallback((field: string, value: number | string) => {
     setLocalLineup(prev => ({
       ...prev,
       costs: { ...prev.costs, [field]: value },
@@ -270,16 +270,28 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
                 />
               </div>
               <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="roastingService" className="text-xs md:text-sm">Roasting Service (IDR/kg)</Label>
-                <Input
-                  id="roastingService"
-                  type="number"
-                  step="0.01"
-                  value={localLineup.costs.roastingService || ""}
-                  onChange={(e) => handleCostsChange('roastingService', Number(e.target.value))}
-                  placeholder="25000"
-                  className="h-9 md:h-10 text-sm"
-                />
+                <Label htmlFor="roastingService" className="text-xs md:text-sm">
+                  Roasting Service ({localLineup.costs.roastingServiceType === "perBatch" ? "IDR/Batch" : "IDR/Kg"})
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="roastingService"
+                    type="number"
+                    step="0.01"
+                    value={localLineup.costs.roastingService || ""}
+                    onChange={(e) => handleCostsChange('roastingService', Number(e.target.value))}
+                    placeholder="25000"
+                    className="h-9 md:h-10 text-sm flex-1"
+                  />
+                  <select
+                    value={localLineup.costs.roastingServiceType || "perKg"}
+                    onChange={(e) => handleCostsChange('roastingServiceType', e.target.value as "perKg" | "perBatch")}
+                    className="h-9 md:h-10 text-xs md:text-sm px-2 rounded-md border border-input bg-background"
+                  >
+                    <option value="perKg">Per Kg</option>
+                    <option value="perBatch">Per Batch</option>
+                  </select>
+                </div>
               </div>
               <div className="space-y-1.5 md:space-y-2">
                 <Label htmlFor="roastingTransport" className="text-xs md:text-sm">Roasting Transport (IDR)</Label>
@@ -472,7 +484,9 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
                     { name: 'Shipping', value: localLineup.costs.greenBeansShipping },
                     { 
                       name: 'Roasting Service', 
-                      value: (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
+                      value: localLineup.costs.roastingServiceType === "perBatch" 
+                        ? localLineup.costs.roastingService * localLineup.roastLogs.length
+                        : (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
                     },
                     { name: 'Transport', value: localLineup.costs.roastingTransport },
                   ]}
@@ -484,35 +498,67 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  <Cell fill="hsl(var(--primary))" />
-                  <Cell fill="hsl(var(--accent))" />
-                  <Cell fill="hsl(var(--secondary))" />
-                  <Cell fill="hsl(var(--muted))" />
+                  <Cell fill="#22c55e" />
+                  <Cell fill="#f59e0b" />
+                  <Cell fill="#3b82f6" />
+                  <Cell fill="#8b5cf6" />
                 </Pie>
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip 
+                  formatter={(value: number) => formatCurrency(value)} 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ 
+                    color: 'hsl(var(--foreground))',
+                    fontSize: '12px'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
 
             <div className="grid grid-cols-2 gap-2 md:gap-4">
-              <Card className="p-2 md:p-3 bg-primary/10">
-                <p className="text-[10px] md:text-xs text-muted-foreground">Green Beans Cost</p>
+              <Card className="p-2 md:p-3 border-l-4 border-l-green-500">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Green Beans Cost</p>
+                </div>
                 <p className="text-sm md:text-lg font-bold">
                   {formatCurrency((localLineup.costs.greenBeansPrice * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}
                 </p>
               </Card>
-              <Card className="p-2 md:p-3 bg-accent/10">
-                <p className="text-[10px] md:text-xs text-muted-foreground">Roasting Cost</p>
+              <Card className="p-2 md:p-3 border-l-4 border-l-amber-500">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Shipping Cost</p>
+                </div>
                 <p className="text-sm md:text-lg font-bold">
-                  {formatCurrency((localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}
+                  {formatCurrency(localLineup.costs.greenBeansShipping)}
                 </p>
               </Card>
-              <Card className="p-2 md:p-3 bg-secondary/10">
-                <p className="text-[10px] md:text-xs text-muted-foreground">R&D Allocation</p>
-                <p className="text-sm md:text-lg font-bold">{formatWeight(localLineup.allocations.rnd)}</p>
+              <Card className="p-2 md:p-3 border-l-4 border-l-blue-500">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Roasting Cost</p>
+                </div>
+                <p className="text-sm md:text-lg font-bold">
+                  {formatCurrency(
+                    localLineup.costs.roastingServiceType === "perBatch" 
+                      ? localLineup.costs.roastingService * localLineup.roastLogs.length
+                      : (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000
+                  )}
+                </p>
               </Card>
-              <Card className="p-2 md:p-3 bg-muted/50">
-                <p className="text-[10px] md:text-xs text-muted-foreground">Promo Allocation</p>
-                <p className="text-sm md:text-lg font-bold">{formatWeight(localLineup.allocations.promo)}</p>
+              <Card className="p-2 md:p-3 border-l-4 border-l-purple-500">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 rounded-full bg-purple-500" />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Transport Cost</p>
+                </div>
+                <p className="text-sm md:text-lg font-bold">{formatCurrency(localLineup.costs.roastingTransport)}</p>
               </Card>
             </div>
           </AccordionContent>
@@ -573,10 +619,13 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
                 {/* Mobile Cards View */}
                 <div className="block md:hidden space-y-2">
                   {localLineup.roastLogs.map((log, index) => {
+                    const roastingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
+                      ? localLineup.costs.roastingService
+                      : (localLineup.costs.roastingService * log.inputWeight / 1000);
                     const batchCost = 
                       (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
                       (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
-                      (localLineup.costs.roastingService * log.inputWeight / 1000) +
+                      roastingCostPerBatch +
                       (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
                     const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
                     const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
@@ -628,10 +677,13 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
                     </thead>
                     <tbody>
                       {localLineup.roastLogs.map((log, index) => {
+                        const roastingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
+                          ? localLineup.costs.roastingService
+                          : (localLineup.costs.roastingService * log.inputWeight / 1000);
                         const batchCost = 
                           (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
                           (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
-                          (localLineup.costs.roastingService * log.inputWeight / 1000) +
+                          roastingCostPerBatch +
                           (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
                         const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
                         const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
