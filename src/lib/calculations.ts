@@ -9,8 +9,10 @@ export function calculateTotalInitialCost(lineup: Lineup): number {
   // Green beans cost based on actual roast log input, not initial stock
   const greenBeansCost = (costs.greenBeansPrice * totalRoastingInput) / 1000; // Convert grams to kg
   
-  // Calculate roasting service cost based on actual batch weights from roast logs
-  const roastingServiceCost = (costs.roastingService * totalRoastingInput) / 1000; // Convert grams to kg
+  // Calculate roasting service cost based on service type
+  const roastingServiceCost = costs.roastingServiceType === "perBatch"
+    ? costs.roastingService * roastLogs.length
+    : (costs.roastingService * totalRoastingInput) / 1000; // Convert grams to kg
   
   return (
     greenBeansCost +

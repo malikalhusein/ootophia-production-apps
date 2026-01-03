@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers, Eye } from "lucide-react";
+import { Download, FileText, FileDown, Files, FileSpreadsheet, MoreHorizontal, Pencil, Trash2, Filter, Layers, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, calculateProductHPP, calculateCostPerGram } from "@/lib/calculations";
 import { generateInvoicePDF } from "@/lib/pdfGenerator";
 import { prepareInvoiceData, InvoiceData, CustomerInfo } from "@/lib/invoiceUtils";
@@ -75,6 +75,12 @@ export default function SalesJournal() {
     dateFrom: "",
     dateTo: "",
   });
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{
+    key: "date" | "status" | "description" | "product" | "quantity" | "price" | "total";
+    direction: "asc" | "desc";
+  } | null>(null);
 
   const handleSubmit = useCallback(async (data: {
     date: string;
@@ -188,42 +194,6 @@ export default function SalesJournal() {
     toast.success("Transaksi berhasil dihapus");
   }, [deletingTransactionId, deleteTransaction]);
 
-  // Memoize filtered transactions
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      if (filter.status !== "all" && t.status !== filter.status) return false;
-      if (filter.dateFrom && t.date < filter.dateFrom) return false;
-      if (filter.dateTo && t.date > filter.dateTo) return false;
-      if (filter.search) {
-        const searchLower = filter.search.toLowerCase();
-        return t.description?.toLowerCase().includes(searchLower);
-      }
-      return true;
-    });
-  }, [transactions, filter]);
-
-  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
-
-  const toggleTransactionSelection = (id: string) => {
-    setSelectedTransactions(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllTransactions = () => {
-    if (selectedTransactions.size === filteredTransactions.length) {
-      setSelectedTransactions(new Set());
-    } else {
-      setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
-    }
-  };
-
   const getProductPrice = useCallback((transaction: Transaction) => {
     if (transaction.bundleId) {
       const bundle = bundles.find(b => b.id === transaction.bundleId);
@@ -254,6 +224,110 @@ export default function SalesJournal() {
     }
     return "-";
   }, [products, lineups, bundles]);
+
+  // Memoize filtered and sorted transactions
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => {
+      if (filter.status !== "all" && t.status !== filter.status) return false;
+      if (filter.dateFrom && t.date < filter.dateFrom) return false;
+      if (filter.dateTo && t.date > filter.dateTo) return false;
+      if (filter.search) {
+        const searchLower = filter.search.toLowerCase();
+        return t.description?.toLowerCase().includes(searchLower);
+      }
+      return true;
+    });
+
+    // Apply sorting
+    if (sortConfig) {
+      filtered = [...filtered].sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case "date":
+            aValue = a.date;
+            bValue = b.date;
+            break;
+          case "status":
+            aValue = a.status;
+            bValue = b.status;
+            break;
+          case "description":
+            aValue = a.description || "";
+            bValue = b.description || "";
+            break;
+          case "product":
+            aValue = getItemName(a);
+            bValue = getItemName(b);
+            break;
+          case "quantity":
+            aValue = a.quantity;
+            bValue = b.quantity;
+            break;
+          case "price":
+            aValue = getProductPrice(a);
+            bValue = getProductPrice(b);
+            break;
+          case "total":
+            aValue = a.totalValue > 0 ? a.totalValue : getProductPrice(a) * a.quantity;
+            bValue = b.totalValue > 0 ? b.totalValue : getProductPrice(b) * b.quantity;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [transactions, filter, sortConfig, getItemName, getProductPrice]);
+
+  const handleSort = (key: "date" | "status" | "description" | "product" | "quantity" | "price" | "total") => {
+    setSortConfig(current => {
+      if (!current || current.key !== key) {
+        return { key, direction: "asc" };
+      }
+      if (current.direction === "asc") {
+        return { key, direction: "desc" };
+      }
+      return null;
+    });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortConfig.direction === "asc" 
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+
+  const toggleTransactionSelection = (id: string) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllTransactions = () => {
+    if (selectedTransactions.size === filteredTransactions.length) {
+      setSelectedTransactions(new Set());
+    } else {
+      setSelectedTransactions(new Set(filteredTransactions.map(t => t.id)));
+    }
+  };
 
   const handleGenerateInvoice = useCallback((transaction: Transaction) => {
     const productName = getItemName(transaction);
@@ -482,13 +556,69 @@ export default function SalesJournal() {
                       onCheckedChange={selectAllTransactions}
                     />
                   </th>
-                  <th className="p-4">Tanggal</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Keterangan</th>
-                  <th className="p-4">Produk / Batch</th>
-                  <th className="p-4 text-right">Qty</th>
-                  <th className="p-4 text-right">Harga</th>
-                  <th className="p-4 text-right">Total</th>
+                  <th className="p-4">
+                    <button 
+                      onClick={() => handleSort("date")}
+                      className="flex items-center hover:text-primary transition-colors"
+                    >
+                      Tanggal
+                      <SortIcon columnKey="date" />
+                    </button>
+                  </th>
+                  <th className="p-4">
+                    <button 
+                      onClick={() => handleSort("status")}
+                      className="flex items-center hover:text-primary transition-colors"
+                    >
+                      Status
+                      <SortIcon columnKey="status" />
+                    </button>
+                  </th>
+                  <th className="p-4">
+                    <button 
+                      onClick={() => handleSort("description")}
+                      className="flex items-center hover:text-primary transition-colors"
+                    >
+                      Keterangan
+                      <SortIcon columnKey="description" />
+                    </button>
+                  </th>
+                  <th className="p-4">
+                    <button 
+                      onClick={() => handleSort("product")}
+                      className="flex items-center hover:text-primary transition-colors"
+                    >
+                      Produk / Batch
+                      <SortIcon columnKey="product" />
+                    </button>
+                  </th>
+                  <th className="p-4 text-right">
+                    <button 
+                      onClick={() => handleSort("quantity")}
+                      className="flex items-center justify-end hover:text-primary transition-colors ml-auto"
+                    >
+                      Qty
+                      <SortIcon columnKey="quantity" />
+                    </button>
+                  </th>
+                  <th className="p-4 text-right">
+                    <button 
+                      onClick={() => handleSort("price")}
+                      className="flex items-center justify-end hover:text-primary transition-colors ml-auto"
+                    >
+                      Harga
+                      <SortIcon columnKey="price" />
+                    </button>
+                  </th>
+                  <th className="p-4 text-right">
+                    <button 
+                      onClick={() => handleSort("total")}
+                      className="flex items-center justify-end hover:text-primary transition-colors ml-auto"
+                    >
+                      Total
+                      <SortIcon columnKey="total" />
+                    </button>
+                  </th>
                   <th className="p-4 text-center">Aksi</th>
                 </tr>
               </thead>

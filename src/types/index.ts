@@ -2,6 +2,7 @@ export interface InitialCosts {
   greenBeansPrice: number;
   greenBeansShipping: number;
   roastingService: number;
+  roastingServiceType: "perKg" | "perBatch";
   roastingTransport: number;
 }
 

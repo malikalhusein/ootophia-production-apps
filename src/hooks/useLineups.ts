@@ -45,6 +45,7 @@ export function useLineups() {
             greenBeansPrice: Number(lineup.green_beans_price),
             greenBeansShipping: Number(lineup.green_beans_shipping),
             roastingService: Number(lineup.roasting_service),
+            roastingServiceType: "perKg" as const,
             roastingTransport: Number(lineup.roasting_transport),
           },
           roastLogs: logs.map((log) => ({
