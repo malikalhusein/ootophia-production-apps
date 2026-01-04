@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Package, DollarSign, Activity, AlertTriangle } from "lucide-react";
 import { useLineups } from "@/hooks/useLineups";
@@ -9,14 +10,63 @@ import { formatCurrency, calculateCostPerGram, calculateWeightForSale } from "@/
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { SalesSummary } from "@/components/Dashboard/SalesSummary";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Dashboard() {
   const { lineups, isLoading: lineupsLoading } = useLineups();
   const { products, isLoading: productsLoading } = useProducts();
   const { transactions, isLoading: transactionsLoading } = useTransactions();
   const { bundles, isLoading: bundlesLoading } = useBundles();
+  const queryClient = useQueryClient();
 
   const isLoading = lineupsLoading || productsLoading || transactionsLoading || bundlesLoading;
+
+  // Set up realtime subscription for transactions
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-transactions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions'
+        },
+        () => {
+          // Invalidate all relevant queries when transactions change
+          queryClient.invalidateQueries({ queryKey: ['transactions'] });
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'products'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lineups'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['lineups'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Inventory alerts
   const { lowStockProducts, outOfStockProducts } = useInventoryAlerts(products, productsLoading);

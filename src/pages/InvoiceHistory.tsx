@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,27 +27,72 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Search, Download, Trash2, MoreHorizontal, Eye, Printer, User, FileSpreadsheet } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { FileText, Search, Download, Trash2, MoreHorizontal, Eye, Printer, User, FileSpreadsheet, CalendarIcon, Filter, X } from "lucide-react";
 import { useInvoices, Invoice } from "@/hooks/useInvoices";
 import { formatCurrency } from "@/lib/calculations";
 import { generateInvoicePDF } from "@/lib/pdfGenerator";
 import { BUSINESS_INFO } from "@/lib/invoiceUtils";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
+import { InvoiceHistoryPreviewDialog } from "@/components/InvoiceHistory/InvoiceHistoryPreviewDialog";
 
 export default function InvoiceHistory() {
   const { invoices, isLoading, deleteInvoice } = useInvoices();
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  
+  // Filter states
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  
+  // Preview dialog state
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      invoice.invoiceNumber.toLowerCase().includes(query) ||
-      invoice.customerName?.toLowerCase().includes(query) ||
-      invoice.status.toLowerCase().includes(query)
-    );
-  });
+  // Get unique statuses from invoices
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set(invoices.map(inv => inv.status));
+    return Array.from(statuses);
+  }, [invoices]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        invoice.invoiceNumber.toLowerCase().includes(query) ||
+        invoice.customerName?.toLowerCase().includes(query) ||
+        invoice.status.toLowerCase().includes(query);
+      
+      // Date filter
+      const invoiceDate = new Date(invoice.date);
+      const matchesDateFrom = !dateFrom || invoiceDate >= dateFrom;
+      const matchesDateTo = !dateTo || invoiceDate <= dateTo;
+      
+      // Status filter
+      const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
+      
+      return matchesSearch && matchesDateFrom && matchesDateTo && matchesStatus;
+    });
+  }, [invoices, searchQuery, dateFrom, dateTo, statusFilter]);
+
+  const hasActiveFilters = dateFrom || dateTo || statusFilter !== "all";
+
+  const clearFilters = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setStatusFilter("all");
+  };
 
   const prepareInvoiceDataFromHistory = (invoice: Invoice) => {
     // Parse items from JSON if needed
@@ -227,39 +272,108 @@ export default function InvoiceHistory() {
 
       <Card className="shadow-sm">
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Daftar Invoice ({filteredInvoices.length})
-            </CardTitle>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Cari invoice..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Daftar Invoice ({filteredInvoices.length})
+              </CardTitle>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari invoice..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportExcel} className="gap-2">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Export Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
-                    <Download className="h-4 w-4" />
-                    Export
+            </div>
+
+            {/* Filter Section */}
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                Filter:
+              </div>
+              
+              {/* Date From */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "dd MMM yyyy", { locale: id }) : "Dari tanggal"}
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    Export CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportExcel} className="gap-2">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Export Excel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* Date To */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {dateTo ? format(dateTo, "dd MMM yyyy", { locale: id }) : "Sampai tanggal"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  {uniqueStatuses.map(status => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                  Hapus Filter
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -268,7 +382,7 @@ export default function InvoiceHistory() {
             <div className="text-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
-                {searchQuery ? "Tidak ada invoice yang cocok" : "Belum ada invoice tersimpan"}
+                {searchQuery || hasActiveFilters ? "Tidak ada invoice yang cocok" : "Belum ada invoice tersimpan"}
               </p>
             </div>
           ) : (
@@ -315,6 +429,10 @@ export default function InvoiceHistory() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setPreviewInvoice(invoice)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDownload(invoice)}>
                               <Download className="h-4 w-4 mr-2" />
                               Download PDF
@@ -341,6 +459,15 @@ export default function InvoiceHistory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      <InvoiceHistoryPreviewDialog
+        open={!!previewInvoice}
+        onOpenChange={(open) => !open && setPreviewInvoice(null)}
+        invoice={previewInvoice}
+        onDownload={() => previewInvoice && handleDownload(previewInvoice)}
+        onPrint={() => previewInvoice && handlePrint(previewInvoice)}
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
