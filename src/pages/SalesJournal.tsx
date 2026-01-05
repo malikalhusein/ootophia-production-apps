@@ -110,13 +110,24 @@ export default function SalesJournal() {
         if (item.type === "product") {
           const product = products.find(p => p.id === item.itemId);
           
+          // Calculate totalValue based on product HPP and margin
+          let calculatedTotalValue = 0;
+          if (product) {
+            const lineup = lineups.find(l => l.id === product.lineupId);
+            if (lineup) {
+              const costPerGram = calculateCostPerGram(lineup);
+              const { sellingPrice } = calculateProductHPP(product, costPerGram);
+              calculatedTotalValue = sellingPrice * item.quantity;
+            }
+          }
+          
           const transaction: Transaction = {
             id: crypto.randomUUID(),
             date: data.date,
             status: data.status,
             productId: item.itemId,
             quantity: item.quantity,
-            totalValue: 0,
+            totalValue: calculatedTotalValue,
             description: data.description,
           };
           
@@ -173,7 +184,7 @@ export default function SalesJournal() {
 
       toast.success(`${data.items.length} transaksi berhasil ditambahkan`);
     }
-  }, [createTransaction, products, bundles, createAdjustment, updateProduct]);
+  }, [createTransaction, products, bundles, lineups, createAdjustment, updateProduct]);
 
   const handleEditSave = useCallback((transaction: Transaction) => {
     setPendingEditTransaction(transaction);

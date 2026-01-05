@@ -6,7 +6,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBundles } from "@/hooks/useBundles";
 import { useInventoryAlerts } from "@/hooks/useInventoryAlerts";
-import { formatCurrency, calculateCostPerGram, calculateWeightForSale } from "@/lib/calculations";
+import { formatCurrency, calculateCostPerGram, calculateWeightForSale, calculateProductHPP } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { SalesSummary } from "@/components/Dashboard/SalesSummary";
@@ -71,10 +71,34 @@ export default function Dashboard() {
   // Inventory alerts
   const { lowStockProducts, outOfStockProducts } = useInventoryAlerts(products, productsLoading);
 
-  // Calculate KPIs
+  // Helper to calculate product selling price for fallback
+  const getProductSellingPrice = (productId: string): number => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return 0;
+    const lineup = lineups.find(l => l.id === product.lineupId);
+    if (!lineup) return 0;
+    const costPerGram = calculateCostPerGram(lineup);
+    const { sellingPrice } = calculateProductHPP(product, costPerGram);
+    return sellingPrice;
+  };
+
+  // Calculate KPIs with fallback for transactions with totalValue = 0
   const totalRevenue = transactions
     .filter((t) => t.status === "sale")
-    .reduce((sum, t) => sum + t.totalValue, 0);
+    .reduce((sum, t) => {
+      // Use totalValue if available, otherwise calculate from product/bundle price
+      if (t.totalValue > 0) {
+        return sum + t.totalValue;
+      }
+      if (t.productId) {
+        return sum + getProductSellingPrice(t.productId) * t.quantity;
+      }
+      if (t.bundleId) {
+        const bundle = bundles.find(b => b.id === t.bundleId);
+        return sum + (bundle?.customPrice || 0) * t.quantity;
+      }
+      return sum;
+    }, 0);
 
   const unitsSold = transactions
     .filter((t) => t.status === "sale")
@@ -200,7 +224,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Sales Summary */}
-      <SalesSummary transactions={transactions} products={products} bundles={bundles} />
+      <SalesSummary transactions={transactions} products={products} bundles={bundles} lineups={lineups} />
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
