@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Product, Lineup, Bundle, Transaction } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, X, ShoppingCart, Package, Calendar, FileText, Layers } from "lucide-react";
+import { Plus, X, ShoppingCart, Package, Calendar, FileText, Layers, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
@@ -139,6 +139,44 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
 
   const totalItems = transactionItems.filter(i => i.itemId).length;
   const totalQuantity = transactionItems.reduce((acc, i) => acc + (i.itemId ? i.quantity : 0), 0);
+
+  // Stock validation - check for items with insufficient stock
+  const stockWarnings = useMemo(() => {
+    if (formData.status !== "sale" && formData.status !== "bonus") return [];
+    
+    const warnings: { itemName: string; requested: number; available: number }[] = [];
+    
+    transactionItems.forEach(item => {
+      if (!item.itemId || item.quantity <= 0) return;
+      
+      if (item.type === "product") {
+        const product = products.find(p => p.id === item.itemId);
+        if (product && item.quantity > product.stock) {
+          warnings.push({
+            itemName: product.name,
+            requested: item.quantity,
+            available: product.stock,
+          });
+        }
+      } else if (item.type === "bundle") {
+        const bundle = bundles.find(b => b.id === item.itemId);
+        if (bundle) {
+          bundle.productIds.forEach(productId => {
+            const product = products.find(p => p.id === productId);
+            if (product && item.quantity > product.stock) {
+              warnings.push({
+                itemName: `${product.name} (dalam ${bundle.name})`,
+                requested: item.quantity,
+                available: product.stock,
+              });
+            }
+          });
+        }
+      }
+    });
+    
+    return warnings;
+  }, [transactionItems, products, bundles, formData.status]);
 
   return (
     <Card className="overflow-hidden border-2 border-primary/20 shadow-lg">
@@ -367,6 +405,30 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Stock Warning */}
+        {stockWarnings.length > 0 && (
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  Stok Tidak Mencukupi
+                </p>
+                <ul className="text-sm text-amber-600 dark:text-amber-400 space-y-1">
+                  {stockWarnings.map((warning, idx) => (
+                    <li key={idx}>
+                      • {warning.itemName}: diminta {warning.requested}, tersedia {warning.available}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Transaksi tetap bisa dilanjutkan, tapi stok akan menjadi negatif.
+                </p>
+              </div>
             </div>
           </div>
         )}
