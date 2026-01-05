@@ -5,14 +5,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2 } from "lucide-react";
-import { Lineup, RoastLog } from "@/types";
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Lineup, RoastLog, Product } from "@/types";
 import { 
   calculateTotalInitialCost, 
   calculateTotalRoastedOutput,
   calculateShrinkagePercentage,
   calculateCostPerGram,
   calculateWeightForSale,
+  calculateWeightAssignedToProducts,
   formatCurrency,
   formatWeight
 } from "@/lib/calculations";
@@ -21,6 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 
 interface LineupFormProps {
   lineup: Lineup;
+  products?: Product[];
   onUpdate: (updates: Partial<Lineup>) => void;
   onSave?: (lineup: Lineup) => void;
 }
@@ -29,7 +31,7 @@ function generateUUID() {
   return crypto.randomUUID();
 }
 
-export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
+export function LineupForm({ lineup, products = [], onUpdate, onSave }: LineupFormProps) {
   // Local state for inputs to prevent lag
   const [localLineup, setLocalLineup] = useState(lineup);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -45,6 +47,8 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
   const shrinkage = useMemo(() => calculateShrinkagePercentage(localLineup), [localLineup]);
   const costPerGram = useMemo(() => calculateCostPerGram(localLineup), [localLineup]);
   const weightForSale = useMemo(() => calculateWeightForSale(localLineup), [localLineup]);
+  const weightAssignedToProducts = useMemo(() => calculateWeightAssignedToProducts(localLineup, products), [localLineup, products]);
+  const remainingBeansToSale = useMemo(() => weightForSale - weightAssignedToProducts, [weightForSale, weightAssignedToProducts]);
 
   // Debounced update to parent
   useEffect(() => {
@@ -457,12 +461,33 @@ export function LineupForm({ lineup, onUpdate, onSave }: LineupFormProps) {
             <Card className="p-3 md:p-4 bg-accent/10 border-accent">
               <div className="space-y-1 md:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs md:text-sm font-semibold">Roasted Beans on Sales</span>
+                  <span className="text-xs md:text-sm font-semibold">Roasted Beans for Sale</span>
                   <span className="text-base md:text-lg font-bold text-accent">{formatWeight(weightForSale)}</span>
                 </div>
                 <p className="text-[10px] md:text-xs text-muted-foreground">
                   Total roasted output minus R&D and Promo allocations
                 </p>
+              </div>
+            </Card>
+
+            <Card className={`p-3 md:p-4 ${remainingBeansToSale < 0 ? 'bg-destructive/10 border-destructive' : 'bg-primary/10 border-primary'}`}>
+              <div className="space-y-1 md:space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs md:text-sm font-semibold">Remaining Roasted Beans to Sale</span>
+                  <span className={`text-base md:text-lg font-bold ${remainingBeansToSale < 0 ? 'text-destructive' : 'text-primary'}`}>
+                    {formatWeight(remainingBeansToSale)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
+                  <span>Assigned to products: {formatWeight(weightAssignedToProducts)}</span>
+                  <span>{products.length} product(s)</span>
+                </div>
+                {remainingBeansToSale < 0 && (
+                  <div className="flex items-center gap-1 text-destructive text-[10px] md:text-xs mt-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>Stock exceeds available beans!</span>
+                  </div>
+                )}
               </div>
             </Card>
           </AccordionContent>
