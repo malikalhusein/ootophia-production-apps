@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, X } from "lucide-react";
 import { useLineups } from "@/hooks/useLineups";
+import { useProducts } from "@/hooks/useProducts";
 import { Lineup } from "@/types";
 import { LineupForm } from "@/components/CostCalculator/LineupForm";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +15,7 @@ function generateUUID() {
 
 export default function CostCalculator() {
   const { lineups, isLoading, createLineup, updateLineup, deleteLineup } = useLineups();
+  const { products } = useProducts();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>(
     lineups.length > 0 ? lineups[0].id : ""
@@ -140,6 +142,7 @@ export default function CostCalculator() {
                 <TabsContent key={lineup.id} value={lineup.id} className="p-6 mt-0">
                   <LineupForm
                     lineup={lineup}
+                    products={products.filter(p => p.lineupId === lineup.id)}
                     onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
                     onSave={handleSaveLineup}
                   />
