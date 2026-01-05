@@ -1,28 +1,43 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Layers, TrendingUp, ShoppingBag } from "lucide-react";
-import { Transaction, Product, Bundle } from "@/types";
-import { formatCurrency } from "@/lib/calculations";
+import { Transaction, Product, Bundle, Lineup } from "@/types";
+import { formatCurrency, calculateCostPerGram, calculateProductHPP } from "@/lib/calculations";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface SalesSummaryProps {
   transactions: Transaction[];
   products: Product[];
   bundles: Bundle[];
+  lineups: Lineup[];
 }
 
-export function SalesSummary({ transactions, products, bundles }: SalesSummaryProps) {
+export function SalesSummary({ transactions, products, bundles, lineups }: SalesSummaryProps) {
+  // Helper to calculate product selling price
+  const getProductSellingPrice = useCallback((productId: string): number => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return 0;
+    const lineup = lineups.find(l => l.id === product.lineupId);
+    if (!lineup) return 0;
+    const costPerGram = calculateCostPerGram(lineup);
+    const { sellingPrice } = calculateProductHPP(product, costPerGram);
+    return sellingPrice;
+  }, [products, lineups]);
+
   const salesData = useMemo(() => {
     const salesTransactions = transactions.filter(t => t.status === "sale");
     
-    // Calculate individual product sales
+    // Calculate individual product sales with fallback calculation
     const individualSales = salesTransactions
       .filter(t => t.productId && !t.bundleId)
       .reduce((acc, t) => {
-        const product = products.find(p => p.id === t.productId);
+        // Use totalValue if available, otherwise calculate from product price
+        const revenue = t.totalValue > 0 
+          ? t.totalValue 
+          : (t.productId ? getProductSellingPrice(t.productId) * t.quantity : 0);
         return {
           count: acc.count + t.quantity,
-          revenue: acc.revenue + t.totalValue,
+          revenue: acc.revenue + revenue,
           transactions: acc.transactions + 1,
         };
       }, { count: 0, revenue: 0, transactions: 0 });
@@ -47,7 +62,7 @@ export function SalesSummary({ transactions, products, bundles }: SalesSummaryPr
       bundle: bundleSales,
       total: { revenue: totalRevenue, transactions: totalTransactions },
     };
-  }, [transactions, products, bundles]);
+  }, [transactions, products, bundles, getProductSellingPrice]);
 
   const pieData = [
     { name: "Produk Individual", value: salesData.individual.revenue, color: "hsl(38, 75%, 52%)" },
