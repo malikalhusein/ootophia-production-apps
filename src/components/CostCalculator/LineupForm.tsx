@@ -487,23 +487,54 @@ export function LineupForm({ lineup, products = [], transactions = [], onUpdate,
             </Card>
 
             <Card className={`p-3 md:p-4 ${remainingBeansToSale < 0 ? 'bg-destructive/10 border-destructive' : 'bg-primary/10 border-primary'}`}>
-              <div className="space-y-1 md:space-y-2">
+              <div className="space-y-2 md:space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-xs md:text-sm font-semibold">Remaining Roasted Beans to Sale</span>
                   <span className={`text-base md:text-lg font-bold ${remainingBeansToSale < 0 ? 'text-destructive' : 'text-primary'}`}>
                     {formatWeight(remainingBeansToSale)}
                   </span>
                 </div>
-                <div className="space-y-0.5 text-[10px] md:text-xs text-muted-foreground">
+                
+                {/* Breakdown per product */}
+                {products.length > 0 && (
+                  <div className="border-t border-border/50 pt-2 space-y-1">
+                    <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-1">Breakdown per produk:</p>
+                    {products.map((product) => {
+                      const stockWeight = product.netWeight * product.stock;
+                      const soldTransactions = transactions.filter(
+                        t => t.productId === product.id && (t.status === 'sale' || t.status === 'bonus')
+                      );
+                      const soldWeight = soldTransactions.reduce((sum, t) => sum + (product.netWeight * t.quantity), 0);
+                      const totalUsed = stockWeight + soldWeight;
+                      
+                      return (
+                        <div key={product.id} className="flex items-center justify-between text-[10px] md:text-xs">
+                          <span className="truncate max-w-[120px] md:max-w-[180px]" title={product.name}>
+                            {product.name} ({product.netWeight}g)
+                          </span>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <span>Stok: {product.stock}</span>
+                            <span className="text-primary">Jual: {soldTransactions.reduce((sum, t) => sum + t.quantity, 0)}</span>
+                            <span className="font-medium text-foreground">{formatWeight(totalUsed)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Summary totals */}
+                <div className="border-t border-border/50 pt-2 space-y-0.5 text-[10px] md:text-xs text-muted-foreground">
                   <div className="flex justify-between">
-                    <span>Dialokasi ke produk (stok)</span>
+                    <span>Total dialokasi (stok)</span>
                     <span>{formatWeight(weightAssignedToProducts)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Terjual</span>
+                    <span>Total terjual</span>
                     <span className="text-primary">{formatWeight(weightSold)}</span>
                   </div>
                 </div>
+                
                 {remainingBeansToSale < 0 && (
                   <div className="flex items-center gap-1 text-destructive text-[10px] md:text-xs mt-1">
                     <AlertTriangle className="h-3 w-3" />
