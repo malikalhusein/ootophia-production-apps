@@ -50,6 +50,7 @@ export default function BatchProfitability() {
       let totalRevenue = 0;
       let totalUnitsSold = 0;
       let totalProfit = 0;
+      let totalWeightSold = 0; // Track weight of beans sold
 
       salesTransactions.forEach((t) => {
         const product = lineupProducts.find((p) => p.id === t.productId);
@@ -60,6 +61,7 @@ export default function BatchProfitability() {
           totalRevenue += revenue;
           totalUnitsSold += t.quantity;
           totalProfit += revenue - cost;
+          totalWeightSold += product.netWeight * t.quantity; // Weight sold
         }
       });
 
@@ -70,11 +72,19 @@ export default function BatchProfitability() {
         potentialRevenue += sellingPrice * product.stock;
       });
 
+      // Calculate weight assigned to products (current stock)
+      const weightAssignedToProducts = lineupProducts.reduce(
+        (sum, p) => sum + p.netWeight * p.stock, 0
+      );
+
       // Calculate margins
       const grossMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100) : 0;
       const utilizationRate = weightForSale > 0 
         ? ((weightForSale - availableBeans) / weightForSale) * 100 
         : 0;
+
+      // Remaining beans = weightForSale - weightAssigned - weightSold (validated)
+      const remainingBeans = weightForSale - weightAssignedToProducts - totalWeightSold;
 
       return {
         lineup,
@@ -90,6 +100,9 @@ export default function BatchProfitability() {
         potentialRevenue,
         grossMargin,
         utilizationRate,
+        totalWeightSold,
+        weightAssignedToProducts,
+        remainingBeans,
       };
     });
   }, [lineups, products, transactions]);
@@ -230,8 +243,18 @@ export default function BatchProfitability() {
                         <span className="font-medium">{formatWeight(report.weightForSale)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tersedia</span>
-                        <span className="font-medium">{formatWeight(report.availableBeans)}</span>
+                        <span className="text-muted-foreground">Dialokasi ke Produk</span>
+                        <span className="font-medium">{formatWeight(report.weightAssignedToProducts)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Terjual</span>
+                        <span className="font-medium text-primary">{formatWeight(report.totalWeightSold)}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span className="text-muted-foreground">Sisa (Remaining)</span>
+                        <span className={`font-medium ${report.remainingBeans < 0 ? 'text-destructive' : ''}`}>
+                          {formatWeight(report.remainingBeans)}
+                        </span>
                       </div>
                     </div>
                   </div>
