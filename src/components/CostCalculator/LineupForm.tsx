@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
-import { Lineup, RoastLog, Product } from "@/types";
+import { Lineup, RoastLog, Product, Transaction } from "@/types";
 import { 
   calculateTotalInitialCost, 
   calculateTotalRoastedOutput,
@@ -23,6 +23,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 interface LineupFormProps {
   lineup: Lineup;
   products?: Product[];
+  transactions?: Transaction[];
   onUpdate: (updates: Partial<Lineup>) => void;
   onSave?: (lineup: Lineup) => void;
 }
@@ -31,7 +32,7 @@ function generateUUID() {
   return crypto.randomUUID();
 }
 
-export function LineupForm({ lineup, products = [], onUpdate, onSave }: LineupFormProps) {
+export function LineupForm({ lineup, products = [], transactions = [], onUpdate, onSave }: LineupFormProps) {
   // Local state for inputs to prevent lag
   const [localLineup, setLocalLineup] = useState(lineup);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -48,7 +49,22 @@ export function LineupForm({ lineup, products = [], onUpdate, onSave }: LineupFo
   const costPerGram = useMemo(() => calculateCostPerGram(localLineup), [localLineup]);
   const weightForSale = useMemo(() => calculateWeightForSale(localLineup), [localLineup]);
   const weightAssignedToProducts = useMemo(() => calculateWeightAssignedToProducts(localLineup, products), [localLineup, products]);
-  const remainingBeansToSale = useMemo(() => weightForSale - weightAssignedToProducts, [weightForSale, weightAssignedToProducts]);
+  
+  // Calculate weight sold from transactions (sale + bonus)
+  const weightSold = useMemo(() => {
+    return transactions
+      .filter(t => t.status === 'sale' || t.status === 'bonus')
+      .reduce((sum, t) => {
+        const product = products.find(p => p.id === t.productId);
+        if (product) {
+          return sum + (product.netWeight * t.quantity);
+        }
+        return sum;
+      }, 0);
+  }, [transactions, products]);
+  
+  // Remaining = weightForSale - weightAssignedToProducts - weightSold
+  const remainingBeansToSale = useMemo(() => weightForSale - weightAssignedToProducts - weightSold, [weightForSale, weightAssignedToProducts, weightSold]);
 
   // Debounced update to parent
   useEffect(() => {
@@ -478,9 +494,15 @@ export function LineupForm({ lineup, products = [], onUpdate, onSave }: LineupFo
                     {formatWeight(remainingBeansToSale)}
                   </span>
                 </div>
-                <div className="flex justify-between text-[10px] md:text-xs text-muted-foreground">
-                  <span>Assigned to products: {formatWeight(weightAssignedToProducts)}</span>
-                  <span>{products.length} product(s)</span>
+                <div className="space-y-0.5 text-[10px] md:text-xs text-muted-foreground">
+                  <div className="flex justify-between">
+                    <span>Dialokasi ke produk (stok)</span>
+                    <span>{formatWeight(weightAssignedToProducts)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Terjual</span>
+                    <span className="text-primary">{formatWeight(weightSold)}</span>
+                  </div>
                 </div>
                 {remainingBeansToSale < 0 && (
                   <div className="flex items-center gap-1 text-destructive text-[10px] md:text-xs mt-1">
