@@ -140,17 +140,25 @@ export default function CostCalculator() {
                 </TabsList>
               </div>
 
-              {lineups.map((lineup) => (
-                <TabsContent key={lineup.id} value={lineup.id} className="p-6 mt-0">
-                  <LineupForm
-                    lineup={lineup}
-                    products={products.filter(p => p.lineupId === lineup.id)}
-                    transactions={transactions.filter(t => t.lineupId === lineup.id)}
-                    onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
-                    onSave={handleSaveLineup}
-                  />
-                </TabsContent>
-              ))}
+              {lineups.map((lineup) => {
+                const lineupProducts = products.filter(p => p.lineupId === lineup.id);
+                const lineupProductIds = new Set(lineupProducts.map(p => p.id));
+                // Filter transactions by products belonging to this lineup
+                const lineupTransactions = transactions.filter(t => 
+                  t.productId && lineupProductIds.has(t.productId)
+                );
+                return (
+                  <TabsContent key={lineup.id} value={lineup.id} className="p-6 mt-0">
+                    <LineupForm
+                      lineup={lineup}
+                      products={lineupProducts}
+                      transactions={lineupTransactions}
+                      onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
+                      onSave={handleSaveLineup}
+                    />
+                  </TabsContent>
+                );
+              })}
             </Tabs>
           </CardContent>
         </Card>
