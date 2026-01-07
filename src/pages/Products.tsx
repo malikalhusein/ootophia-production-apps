@@ -49,19 +49,28 @@ export default function Products() {
   // Group products by lineup with quota tracking - MUST be before early return
   const productsByLineup = useMemo(() => lineups.map(lineup => {
     const lineupProducts = products.filter(p => p.lineupId === lineup.id);
+    const lineupProductIds = new Set(lineupProducts.map(p => p.id));
     const costPerGram = calculateCostPerGram(lineup);
     const totalRoastedOutput = calculateTotalRoastedOutput(lineup);
     const weightForSale = calculateWeightForSale(lineup);
     const weightAssigned = calculateWeightAssignedToProducts(lineup, lineupProducts);
-    const availableBeans = Math.max(0, weightForSale - weightAssigned);
     
-    // Calculate sold quantity from transactions
+    // Calculate sold quantity from transactions for this lineup's products
     const soldByProduct: Record<string, number> = {};
-    transactions.filter(t => t.status === 'sale' || t.status === 'bonus').forEach(t => {
-      if (t.productId) {
-        soldByProduct[t.productId] = (soldByProduct[t.productId] || 0) + t.quantity;
-      }
-    });
+    transactions
+      .filter(t => (t.status === 'sale' || t.status === 'bonus') && t.productId && lineupProductIds.has(t.productId))
+      .forEach(t => {
+        soldByProduct[t.productId!] = (soldByProduct[t.productId!] || 0) + t.quantity;
+      });
+    
+    // Calculate total weight sold (beans already converted to products and sold)
+    const weightSold = lineupProducts.reduce((sum, product) => {
+      const sold = soldByProduct[product.id] || 0;
+      return sum + (sold * product.netWeight);
+    }, 0);
+    
+    // Available beans = weightForSale - weightAssigned (stock) - weightSold
+    const availableBeans = Math.max(0, weightForSale - weightAssigned - weightSold);
 
     return {
       lineup,
@@ -70,6 +79,7 @@ export default function Products() {
       totalRoastedOutput,
       weightForSale,
       weightAssigned,
+      weightSold,
       availableBeans,
       soldByProduct,
     };
@@ -166,7 +176,7 @@ export default function Products() {
               </p>
             </Card>
           ) : (
-            productsByLineup.map(({ lineup, products: lineupProducts, costPerGram, totalRoastedOutput, weightForSale, weightAssigned, availableBeans, soldByProduct }) => (
+            productsByLineup.map(({ lineup, products: lineupProducts, costPerGram, totalRoastedOutput, weightForSale, weightAssigned, weightSold, availableBeans, soldByProduct }) => (
               <Card key={lineup.id} className="p-6 border-2 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-semibold">{lineup.name}</h3>
@@ -176,7 +186,7 @@ export default function Products() {
                 </div>
 
                 {/* Quota Tracking Section */}
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-5">
                   <Card className="p-3 bg-primary/10 border-primary/20">
                     <p className="text-xs text-muted-foreground">Total Roasted</p>
                     <p className="text-lg font-bold">{formatWeight(totalRoastedOutput)}</p>
@@ -186,8 +196,12 @@ export default function Products() {
                     <p className="text-lg font-bold">{formatWeight(weightForSale)}</p>
                   </Card>
                   <Card className="p-3 bg-secondary/10 border-secondary/20">
-                    <p className="text-xs text-muted-foreground">Assigned to Products</p>
+                    <p className="text-xs text-muted-foreground">Stok Produk</p>
                     <p className="text-lg font-bold">{formatWeight(weightAssigned)}</p>
+                  </Card>
+                  <Card className="p-3 bg-blue-500/10 border-blue-500/20">
+                    <p className="text-xs text-muted-foreground">Terjual</p>
+                    <p className="text-lg font-bold text-blue-600">{formatWeight(weightSold)}</p>
                   </Card>
                   <Card className={`p-3 ${availableBeans > 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-destructive/10 border-destructive/20'}`}>
                     <p className="text-xs text-muted-foreground">Available Beans</p>
