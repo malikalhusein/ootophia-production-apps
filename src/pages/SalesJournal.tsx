@@ -126,6 +126,7 @@ export default function SalesJournal() {
             date: data.date,
             status: data.status,
             productId: item.itemId,
+            lineupId: product?.lineupId, // Sync lineup_id from product
             quantity: item.quantity,
             totalValue: calculatedTotalValue,
             description: data.description,
@@ -149,11 +150,16 @@ export default function SalesJournal() {
         } else if (item.type === "bundle") {
           const bundle = bundles.find(b => b.id === item.itemId);
           
+          // Get lineup from first product in bundle for consistency
+          const firstProductId = bundle?.productIds[0];
+          const firstProduct = firstProductId ? products.find(p => p.id === firstProductId) : null;
+          
           const transaction: Transaction = {
             id: crypto.randomUUID(),
             date: data.date,
             status: data.status,
             bundleId: item.itemId,
+            lineupId: firstProduct?.lineupId, // Sync lineup_id from first product in bundle
             quantity: item.quantity,
             totalValue: bundle ? bundle.customPrice * item.quantity : 0,
             description: data.description,
