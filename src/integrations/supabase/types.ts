@@ -331,26 +331,38 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           business_name: string | null
           created_at: string | null
+          email: string | null
           id: string
           logo: string | null
+          payment_methods: Json | null
+          phone: string | null
           theme_hue: number | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
           business_name?: string | null
           created_at?: string | null
+          email?: string | null
           id: string
           logo?: string | null
+          payment_methods?: Json | null
+          phone?: string | null
           theme_hue?: number | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
           business_name?: string | null
           created_at?: string | null
+          email?: string | null
           id?: string
           logo?: string | null
+          payment_methods?: Json | null
+          phone?: string | null
           theme_hue?: number | null
           updated_at?: string | null
         }
