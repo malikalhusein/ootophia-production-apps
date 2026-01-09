@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +8,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Download, Mail, Building2, CreditCard, Smartphone, User, Printer } from "lucide-react";
+import { Download, Mail, Building2, CreditCard, Smartphone, User, Printer, Phone } from "lucide-react";
 import { InvoiceItem, BUSINESS_INFO } from "@/lib/invoiceUtils";
 import { formatCurrency } from "@/lib/calculations";
 import { Invoice } from "@/hooks/useInvoices";
+import { useProfile } from "@/hooks/useProfile";
 
 interface InvoiceHistoryPreviewDialogProps {
   open: boolean;
@@ -29,7 +29,19 @@ export function InvoiceHistoryPreviewDialog({
   onDownload,
   onPrint,
 }: InvoiceHistoryPreviewDialogProps) {
+  const { profile } = useProfile();
+
   if (!invoice) return null;
+
+  // Build business info from profile
+  const businessInfo = {
+    name: profile?.businessName || BUSINESS_INFO.name,
+    address: profile?.address || BUSINESS_INFO.address,
+    email: profile?.email || BUSINESS_INFO.email,
+    phone: profile?.phone || "",
+    paymentMethods: profile?.paymentMethods?.length ? profile.paymentMethods : BUSINESS_INFO.paymentMethods,
+    brandColors: BUSINESS_INFO.brandColors,
+  };
 
   const invoiceDate = new Date(invoice.date).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -62,16 +74,26 @@ export function InvoiceHistoryPreviewDialog({
           {/* Header with brand colors */}
           <div 
             className="p-6 text-white rounded-t-lg"
-            style={{ background: `linear-gradient(135deg, ${BUSINESS_INFO.brandColors.primary}, ${BUSINESS_INFO.brandColors.secondary})` }}
+            style={{ background: `linear-gradient(135deg, ${businessInfo.brandColors.primary}, ${businessInfo.brandColors.secondary})` }}
           >
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-bold">{BUSINESS_INFO.name}</h1>
-                <p className="text-white/80 text-sm mt-1">{BUSINESS_INFO.address}</p>
-                <p className="text-white/80 text-sm flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  {BUSINESS_INFO.email}
-                </p>
+                <h1 className="text-2xl font-bold">{businessInfo.name}</h1>
+                {businessInfo.address && (
+                  <p className="text-white/80 text-sm mt-1">{businessInfo.address}</p>
+                )}
+                {businessInfo.email && (
+                  <p className="text-white/80 text-sm flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {businessInfo.email}
+                  </p>
+                )}
+                {businessInfo.phone && (
+                  <p className="text-white/80 text-sm flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {businessInfo.phone}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <h2 className="text-xl font-bold">INVOICE</h2>
@@ -92,8 +114,8 @@ export function InvoiceHistoryPreviewDialog({
                 <Badge 
                   variant="secondary"
                   style={{ 
-                    backgroundColor: `${BUSINESS_INFO.brandColors.secondary}20`,
-                    color: BUSINESS_INFO.brandColors.primary 
+                    backgroundColor: `${businessInfo.brandColors.secondary}20`,
+                    color: businessInfo.brandColors.primary 
                   }}
                 >
                   {invoice.status}
@@ -138,7 +160,7 @@ export function InvoiceHistoryPreviewDialog({
                 <thead>
                   <tr 
                     className="text-left"
-                    style={{ backgroundColor: `${BUSINESS_INFO.brandColors.primary}10` }}
+                    style={{ backgroundColor: `${businessInfo.brandColors.primary}10` }}
                   >
                     <th className="p-3 font-semibold text-foreground">Produk</th>
                     <th className="p-3 font-semibold text-foreground text-center">Qty</th>
@@ -171,8 +193,8 @@ export function InvoiceHistoryPreviewDialog({
                 <div 
                   className="flex justify-between text-lg font-bold p-2 rounded"
                   style={{ 
-                    backgroundColor: `${BUSINESS_INFO.brandColors.secondary}20`,
-                    color: BUSINESS_INFO.brandColors.primary 
+                    backgroundColor: `${businessInfo.brandColors.secondary}20`,
+                    color: businessInfo.brandColors.primary 
                   }}
                 >
                   <span>TOTAL</span>
@@ -184,43 +206,45 @@ export function InvoiceHistoryPreviewDialog({
             <Separator />
 
             {/* Payment Info */}
-            <div className="space-y-3">
-              <h3 className="font-semibold flex items-center gap-2 text-foreground">
-                <CreditCard className="h-4 w-4" />
-                Pembayaran
-              </h3>
-              <div className="grid gap-3 md:grid-cols-2">
-                {BUSINESS_INFO.paymentMethods.map((method, index) => (
-                  <div 
-                    key={index}
-                    className="p-3 rounded-lg border border-border bg-card transition-colors"
-                    style={{ borderColor: `${BUSINESS_INFO.brandColors.secondary}50` }}
-                  >
-                    <div className="flex items-center gap-2">
-                      {method.type === "Bank Transfer" ? (
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Smartphone className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="text-sm font-medium text-foreground">{method.type}</span>
+            {businessInfo.paymentMethods.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2 text-foreground">
+                  <CreditCard className="h-4 w-4" />
+                  Pembayaran
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {businessInfo.paymentMethods.map((method, index) => (
+                    <div 
+                      key={index}
+                      className="p-3 rounded-lg border border-border bg-card transition-colors"
+                      style={{ borderColor: `${businessInfo.brandColors.secondary}50` }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {method.type.toLowerCase().includes("bank") ? (
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Smartphone className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="text-sm font-medium text-foreground">{method.type}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{method.details}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{method.details}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Footer */}
             <div 
               className="text-center text-sm p-4 rounded-lg transition-colors"
-              style={{ backgroundColor: `${BUSINESS_INFO.brandColors.primary}05` }}
+              style={{ backgroundColor: `${businessInfo.brandColors.primary}05` }}
             >
               <p className="text-muted-foreground">Terima kasih atas kepercayaan Anda</p>
               <p 
                 className="font-semibold mt-1"
-                style={{ color: BUSINESS_INFO.brandColors.primary }}
+                style={{ color: businessInfo.brandColors.primary }}
               >
-                {BUSINESS_INFO.name}
+                {businessInfo.name}
               </p>
             </div>
           </div>
@@ -242,7 +266,7 @@ export function InvoiceHistoryPreviewDialog({
             onClick={onDownload}
             className="gap-2"
             style={{ 
-              backgroundColor: BUSINESS_INFO.brandColors.primary,
+              backgroundColor: businessInfo.brandColors.primary,
             }}
           >
             <Download className="h-4 w-4" />

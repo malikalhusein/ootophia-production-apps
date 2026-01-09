@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { BusinessProfileForm } from "@/components/Settings/BusinessProfileForm";
 
 const themes = [
   { value: "green", label: "Green", color: "hsl(145, 60%, 45%)" },
@@ -161,6 +162,9 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {/* Business Profile */}
+      <BusinessProfileForm />
+
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Theme Color</CardTitle>

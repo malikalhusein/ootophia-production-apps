@@ -22,15 +22,13 @@ export function getInvoiceNumberFromTransaction(transaction: Transaction): strin
   return `INV/${year}${month}${day}/${seq}`;
 }
 
-// Business info for invoices
+// Default business info for invoices (can be overridden by profile)
 export const BUSINESS_INFO = {
-  name: "Ootophia Brewing Labs",
-  address: "Kulon Progo, Yogyakarta, Indonesia",
-  email: "brewinglabs@ootophia.com",
-  paymentMethods: [
-    { type: "Bank Transfer", details: "BNI 0607359802 a/n Muhammad Malik Al-Husein" },
-    { type: "GoPay", details: "+628112555434" },
-  ],
+  name: "My Coffee Business",
+  address: "",
+  email: "",
+  phone: "",
+  paymentMethods: [] as { type: string; details: string }[],
   brandColors: {
     primary: "#420d1d",
     secondary: "#cca23a",

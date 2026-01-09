@@ -10,6 +10,7 @@ import { formatCurrency, calculateCostPerGram, calculateWeightForSale, calculate
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { SalesSummary } from "@/components/Dashboard/SalesSummary";
+import { AnalyticsCharts } from "@/components/Dashboard/AnalyticsCharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -222,6 +223,14 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Analytics Charts */}
+      <AnalyticsCharts 
+        transactions={transactions} 
+        products={products} 
+        lineups={lineups} 
+        bundles={bundles} 
+      />
 
       {/* Sales Summary */}
       <SalesSummary transactions={transactions} products={products} bundles={bundles} lineups={lineups} />
