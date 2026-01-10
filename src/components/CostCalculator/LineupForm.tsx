@@ -22,6 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieC
 
 interface LineupFormProps {
   lineup: Lineup;
+  lineupCode?: string;
   products?: Product[];
   transactions?: Transaction[];
   onUpdate: (updates: Partial<Lineup>) => void;
@@ -32,7 +33,7 @@ function generateUUID() {
   return crypto.randomUUID();
 }
 
-export function LineupForm({ lineup, products = [], transactions = [], onUpdate, onSave }: LineupFormProps) {
+export function LineupForm({ lineup, lineupCode, products = [], transactions = [], onUpdate, onSave }: LineupFormProps) {
   // Local state for inputs to prevent lag
   const [localLineup, setLocalLineup] = useState(lineup);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -164,8 +165,20 @@ export function LineupForm({ lineup, products = [], transactions = [], onUpdate,
           </AccordionTrigger>
           <AccordionContent className="space-y-3 md:space-y-4 pt-3 md:pt-4">
             <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
+              {lineupCode && (
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label htmlFor="lineupCode" className="text-xs md:text-sm">Product Code</Label>
+                  <Input
+                    id="lineupCode"
+                    value={lineupCode}
+                    readOnly
+                    disabled
+                    className="h-9 md:h-10 text-sm font-mono bg-muted"
+                  />
+                </div>
+              )}
               <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="name" className="text-xs md:text-sm">Batch Name</Label>
+                <Label htmlFor="name" className="text-xs md:text-sm">Lineup Name</Label>
                 <Input
                   id="name"
                   value={localLineup.name}

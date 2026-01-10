@@ -1,32 +1,89 @@
-import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useBatches, Batch } from "@/hooks/useBatches";
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { Lineup } from "@/types";
-import { LineupForm } from "@/components/CostCalculator/LineupForm";
 import { useToast } from "@/hooks/use-toast";
+import { BatchHeader } from "@/components/CostCalculator/BatchHeader";
+import { BatchListView } from "@/components/CostCalculator/BatchListView";
+import { LineupTabs } from "@/components/CostCalculator/LineupTabs";
 
 function generateUUID() {
   return crypto.randomUUID();
 }
 
 export default function CostCalculator() {
-  const { lineups, isLoading, createLineup, updateLineup, deleteLineup } = useLineups();
+  const { batches, isLoading: batchesLoading, createBatch, updateBatch, deleteBatch, getNextBatchCode } = useBatches();
+  const { lineups, isLoading: lineupsLoading, createLineup, updateLineup, deleteLineup } = useLineups();
   const { products } = useProducts();
   const { transactions } = useTransactions();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<string>(
-    lineups.length > 0 ? lineups[0].id : ""
-  );
+  
+  // Selected batch ID (null means showing batch list view)
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  // Active lineup tab within the selected batch
+  const [activeLineupId, setActiveLineupId] = useState<string>("");
 
-  const addLineup = () => {
+  const selectedBatch = batches.find(b => b.id === selectedBatchId) || null;
+  const batchLineups = lineups.filter(l => l.batchId === selectedBatchId);
+
+  // When batch is selected, auto-select first lineup
+  useEffect(() => {
+    if (selectedBatchId && batchLineups.length > 0 && !activeLineupId) {
+      setActiveLineupId(batchLineups[0].id);
+    }
+  }, [selectedBatchId, batchLineups, activeLineupId]);
+
+  // Reset active lineup when batch changes
+  useEffect(() => {
+    if (selectedBatchId) {
+      const firstLineup = lineups.find(l => l.batchId === selectedBatchId);
+      setActiveLineupId(firstLineup?.id || "");
+    }
+  }, [selectedBatchId, lineups]);
+
+  const handleSelectBatch = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    setActiveLineupId("");
+  };
+
+  const handleBackToAllBatches = () => {
+    setSelectedBatchId(null);
+    setActiveLineupId("");
+  };
+
+  const handleCreateBatch = (batch: Omit<Batch, "id" | "userId" | "createdAt" | "updatedAt">) => {
+    createBatch(batch, {
+      onSuccess: () => {
+        toast({
+          title: "Batch Created",
+          description: `${batch.name} has been created successfully.`,
+        });
+      },
+    });
+  };
+
+  const handleUpdateBatch = (id: string, updates: Partial<Batch>) => {
+    updateBatch({ id, updates }, {
+      onSuccess: () => {
+        toast({
+          title: "Batch Updated",
+          description: "Batch details have been updated.",
+        });
+      },
+    });
+  };
+
+  const handleAddLineup = () => {
+    if (!selectedBatch) return;
+    
+    const batchLineupsCount = batchLineups.length;
+    const lineupCode = `${selectedBatch.code}-LU${String(batchLineupsCount + 1).padStart(2, "0")}`;
+    
     const newLineup: Lineup = {
       id: generateUUID(),
-      name: `Batch ${lineups.length + 1}`,
+      name: `New Lineup ${batchLineupsCount + 1}`,
       identity: {
         origin: "",
         process: "",
@@ -53,17 +110,21 @@ export default function CostCalculator() {
         rnd: 0,
         promo: 0,
       },
+      batchId: selectedBatch.id,
+      lineupCode: lineupCode,
+      category: "coffee",
     };
+    
     createLineup(newLineup);
-    setActiveTab(newLineup.id);
+    setActiveLineupId(newLineup.id);
   };
 
-  const removeLineup = (id: string) => {
+  const handleRemoveLineup = (id: string) => {
     deleteLineup(id);
-    if (activeTab === id && lineups.length > 1) {
-      const remaining = lineups.filter((l) => l.id !== id);
+    if (activeLineupId === id && batchLineups.length > 1) {
+      const remaining = batchLineups.filter((l) => l.id !== id);
       if (remaining.length > 0) {
-        setActiveTab(remaining[0].id);
+        setActiveLineupId(remaining[0].id);
       }
     }
   };
@@ -76,9 +137,11 @@ export default function CostCalculator() {
     updateLineup({ id: lineup.id, updates: lineup });
     toast({
       title: "Saved",
-      description: "Roast logs have been saved to database",
+      description: "Lineup data has been saved to database",
     });
   };
+
+  const isLoading = batchesLoading || lineupsLoading;
 
   if (isLoading) {
     return (
@@ -88,80 +151,66 @@ export default function CostCalculator() {
     );
   }
 
+  // No batch selected - show batch list view
+  if (!selectedBatchId) {
+    return (
+      <div className="space-y-6">
+        <BatchHeader
+          batches={batches}
+          selectedBatch={null}
+          onSelectBatch={handleSelectBatch}
+          onCreateBatch={handleCreateBatch}
+          onUpdateBatch={handleUpdateBatch}
+          getNextBatchCode={getNextBatchCode}
+          onBackToAllBatches={handleBackToAllBatches}
+        />
+        
+        <BatchListView
+          batches={batches}
+          lineups={lineups}
+          onSelectBatch={handleSelectBatch}
+          onCreateBatch={() => {
+            // Open create dialog via BatchHeader
+            const code = getNextBatchCode();
+            handleCreateBatch({
+              name: `Batch ${code}`,
+              theme: null,
+              description: null,
+              code: code,
+              startDate: new Date().toISOString().split("T")[0],
+            });
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Batch selected - show batch header + lineup tabs
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Batch Management</h2>
-          <p className="text-sm text-muted-foreground">
-            Track your coffee batches from green beans to roasted products
-          </p>
-        </div>
-        <Button onClick={addLineup} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Batch
-        </Button>
-      </div>
-
-      {lineups.length === 0 ? (
-        <Card className="shadow-sm">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No batches yet</p>
-            <Button onClick={addLineup} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create First Batch
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="shadow-sm">
-          <CardContent className="p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <div className="border-b border-border px-6 pt-6">
-                <TabsList className="w-full justify-start h-auto flex-wrap">
-                  {lineups.map((lineup) => (
-                    <div key={lineup.id} className="relative group">
-                      <TabsTrigger value={lineup.id} className="gap-2">
-                        {lineup.name}
-                      </TabsTrigger>
-                      {lineups.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeLineup(lineup.id);
-                          }}
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </TabsList>
-              </div>
-
-              {lineups.map((lineup) => {
-                const lineupProducts = products.filter(p => p.lineupId === lineup.id);
-                const lineupProductIds = new Set(lineupProducts.map(p => p.id));
-                // Filter transactions by products belonging to this lineup
-                const lineupTransactions = transactions.filter(t => 
-                  t.productId && lineupProductIds.has(t.productId)
-                );
-                return (
-                  <TabsContent key={lineup.id} value={lineup.id} className="p-6 mt-0">
-                    <LineupForm
-                      lineup={lineup}
-                      products={lineupProducts}
-                      transactions={lineupTransactions}
-                      onUpdate={(updates) => handleUpdateLineup(lineup.id, updates)}
-                      onSave={handleSaveLineup}
-                    />
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
-          </CardContent>
-        </Card>
+      <BatchHeader
+        batches={batches}
+        selectedBatch={selectedBatch}
+        onSelectBatch={handleSelectBatch}
+        onCreateBatch={handleCreateBatch}
+        onUpdateBatch={handleUpdateBatch}
+        getNextBatchCode={getNextBatchCode}
+        onBackToAllBatches={handleBackToAllBatches}
+      />
+      
+      {selectedBatch && (
+        <LineupTabs
+          batch={selectedBatch}
+          lineups={lineups}
+          products={products}
+          transactions={transactions}
+          activeLineupId={activeLineupId}
+          onSelectLineup={setActiveLineupId}
+          onAddLineup={handleAddLineup}
+          onRemoveLineup={handleRemoveLineup}
+          onUpdateLineup={handleUpdateLineup}
+          onSaveLineup={handleSaveLineup}
+        />
       )}
     </div>
   );

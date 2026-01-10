@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      batches: {
+        Row: {
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          start_date: string
+          theme: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          start_date?: string
+          theme?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          start_date?: string
+          theme?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bundle_products: {
         Row: {
           bundle_id: string
@@ -188,6 +232,7 @@ export type Database = {
       }
       lineups: {
         Row: {
+          batch_id: string | null
           category: string
           created_at: string | null
           green_beans_price: number | null
@@ -195,6 +240,7 @@ export type Database = {
           harvest_season: string | null
           id: string
           initial_weight: number
+          lineup_code: string | null
           name: string
           origin: string | null
           process: string | null
@@ -217,6 +263,7 @@ export type Database = {
           variety: string | null
         }
         Insert: {
+          batch_id?: string | null
           category?: string
           created_at?: string | null
           green_beans_price?: number | null
@@ -224,6 +271,7 @@ export type Database = {
           harvest_season?: string | null
           id?: string
           initial_weight: number
+          lineup_code?: string | null
           name: string
           origin?: string | null
           process?: string | null
@@ -246,6 +294,7 @@ export type Database = {
           variety?: string | null
         }
         Update: {
+          batch_id?: string | null
           category?: string
           created_at?: string | null
           green_beans_price?: number | null
@@ -253,6 +302,7 @@ export type Database = {
           harvest_season?: string | null
           id?: string
           initial_weight?: number
+          lineup_code?: string | null
           name?: string
           origin?: string | null
           process?: string | null
@@ -275,6 +325,13 @@ export type Database = {
           variety?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lineups_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lineups_user_id_fkey"
             columns: ["user_id"]

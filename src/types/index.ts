@@ -37,6 +37,9 @@ export interface Lineup {
   roastLogs: RoastLog[];
   allocations: BeanAllocation;
   allocationsUsed: BeanAllocation;
+  batchId?: string | null;
+  lineupCode?: string | null;
+  category?: "coffee" | "tea";
 }
 
 export interface Product {
