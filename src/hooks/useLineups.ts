@@ -45,7 +45,7 @@ export function useLineups() {
             greenBeansPrice: Number(lineup.green_beans_price),
             greenBeansShipping: Number(lineup.green_beans_shipping),
             roastingService: Number(lineup.roasting_service),
-            roastingServiceType: "perKg" as const,
+            roastingServiceType: (lineup.roasting_service_type as "perKg" | "perBatch") || "perKg",
             roastingTransport: Number(lineup.roasting_transport),
           },
           roastLogs: logs.map((log) => ({
@@ -62,6 +62,9 @@ export function useLineups() {
             rnd: Number(lineup.rnd_allocation_used),
             promo: Number(lineup.promo_allocation_used),
           },
+          batchId: lineup.batch_id || null,
+          lineupCode: lineup.lineup_code || null,
+          category: (lineup.category as "coffee" | "tea") || "coffee",
         };
       });
     },
@@ -86,11 +89,15 @@ export function useLineups() {
           green_beans_price: lineup.costs.greenBeansPrice,
           green_beans_shipping: lineup.costs.greenBeansShipping,
           roasting_service: lineup.costs.roastingService,
+          roasting_service_type: lineup.costs.roastingServiceType,
           roasting_transport: lineup.costs.roastingTransport,
           rnd_allocation: lineup.allocations.rnd,
           promo_allocation: lineup.allocations.promo,
           rnd_allocation_used: lineup.allocationsUsed.rnd,
           promo_allocation_used: lineup.allocationsUsed.promo,
+          batch_id: lineup.batchId || null,
+          lineup_code: lineup.lineupCode || null,
+          category: lineup.category || 'coffee',
         })
         .select()
         .single();
@@ -132,6 +139,9 @@ export function useLineups() {
         if (updates.allocationsUsed.rnd !== undefined) dbUpdates.rnd_allocation_used = updates.allocationsUsed.rnd;
         if (updates.allocationsUsed.promo !== undefined) dbUpdates.promo_allocation_used = updates.allocationsUsed.promo;
       }
+      if (updates.batchId !== undefined) dbUpdates.batch_id = updates.batchId;
+      if (updates.lineupCode !== undefined) dbUpdates.lineup_code = updates.lineupCode;
+      if (updates.category !== undefined) dbUpdates.category = updates.category;
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
