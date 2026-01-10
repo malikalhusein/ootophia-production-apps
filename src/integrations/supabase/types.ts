@@ -188,14 +188,17 @@ export type Database = {
       }
       lineups: {
         Row: {
+          category: string
           created_at: string | null
           green_beans_price: number | null
           green_beans_shipping: number | null
+          harvest_season: string | null
           id: string
           initial_weight: number
           name: string
           origin: string | null
           process: string | null
+          processing_method: string | null
           processor: string | null
           promo_allocation: number | null
           promo_allocation_used: number | null
@@ -204,21 +207,27 @@ export type Database = {
           rnd_allocation_used: number | null
           roaster: string | null
           roasting_service: number | null
+          roasting_service_type: string
           roasting_transport: number | null
           tasting_notes: string | null
+          tea_grade: string | null
+          tea_type: string | null
           updated_at: string | null
           user_id: string
           variety: string | null
         }
         Insert: {
+          category?: string
           created_at?: string | null
           green_beans_price?: number | null
           green_beans_shipping?: number | null
+          harvest_season?: string | null
           id?: string
           initial_weight: number
           name: string
           origin?: string | null
           process?: string | null
+          processing_method?: string | null
           processor?: string | null
           promo_allocation?: number | null
           promo_allocation_used?: number | null
@@ -227,21 +236,27 @@ export type Database = {
           rnd_allocation_used?: number | null
           roaster?: string | null
           roasting_service?: number | null
+          roasting_service_type?: string
           roasting_transport?: number | null
           tasting_notes?: string | null
+          tea_grade?: string | null
+          tea_type?: string | null
           updated_at?: string | null
           user_id: string
           variety?: string | null
         }
         Update: {
+          category?: string
           created_at?: string | null
           green_beans_price?: number | null
           green_beans_shipping?: number | null
+          harvest_season?: string | null
           id?: string
           initial_weight?: number
           name?: string
           origin?: string | null
           process?: string | null
+          processing_method?: string | null
           processor?: string | null
           promo_allocation?: number | null
           promo_allocation_used?: number | null
@@ -250,8 +265,11 @@ export type Database = {
           rnd_allocation_used?: number | null
           roaster?: string | null
           roasting_service?: number | null
+          roasting_service_type?: string
           roasting_transport?: number | null
           tasting_notes?: string | null
+          tea_grade?: string | null
+          tea_type?: string | null
           updated_at?: string | null
           user_id?: string
           variety?: string | null
