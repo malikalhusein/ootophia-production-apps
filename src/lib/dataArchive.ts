@@ -97,8 +97,18 @@ export async function clearAllData(): Promise<void> {
   if (!user) throw new Error("User not authenticated");
 
   // Delete in correct order due to foreign key constraints
+  
   // 1. Delete bundle_products (depends on bundles and products)
-  await supabase.from("bundle_products").delete().neq("bundle_id", "00000000-0000-0000-0000-000000000000");
+  // First get user's bundle IDs, then delete only those junction records
+  const { data: userBundles } = await supabase
+    .from("bundles")
+    .select("id")
+    .eq("user_id", user.id);
+  
+  if (userBundles && userBundles.length > 0) {
+    const bundleIds = userBundles.map(b => b.id);
+    await supabase.from("bundle_products").delete().in("bundle_id", bundleIds);
+  }
   
   // 2. Delete stock_adjustments (depends on products and transactions)
   await supabase.from("stock_adjustments").delete().eq("user_id", user.id);
@@ -116,7 +126,16 @@ export async function clearAllData(): Promise<void> {
   await supabase.from("products").delete().eq("user_id", user.id);
   
   // 7. Delete roast_logs (depends on lineups)
-  await supabase.from("roast_logs").delete().neq("lineup_id", "00000000-0000-0000-0000-000000000000");
+  // Get user's lineup IDs first for proper ownership filtering
+  const { data: userLineups } = await supabase
+    .from("lineups")
+    .select("id")
+    .eq("user_id", user.id);
+  
+  if (userLineups && userLineups.length > 0) {
+    const lineupIds = userLineups.map(l => l.id);
+    await supabase.from("roast_logs").delete().in("lineup_id", lineupIds);
+  }
   
   // 8. Delete lineups
   await supabase.from("lineups").delete().eq("user_id", user.id);
