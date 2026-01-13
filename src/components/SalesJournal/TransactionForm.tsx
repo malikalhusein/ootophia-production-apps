@@ -21,8 +21,23 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, X, ShoppingCart, Package, Calendar, FileText, Layers, AlertTriangle } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Plus, X, ShoppingCart, Package, Calendar, FileText, Layers, AlertTriangle, User, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { useCustomers, Customer } from "@/hooks/useCustomers";
+import { cn } from "@/lib/utils";
 
 type TransactionStatus = "sale" | "promo" | "rnd" | "bonus";
 
@@ -44,6 +59,7 @@ interface TransactionFormProps {
     lineupId?: string;
     manualWeight?: number;
     description: string;
+    customerName?: string;
   }) => Promise<void>;
 }
 
@@ -55,10 +71,16 @@ const statusOptions: { value: TransactionStatus; label: string; description: str
 ];
 
 export function TransactionForm({ products, lineups, bundles, onSubmit }: TransactionFormProps) {
+  const { customers, createCustomer } = useCustomers();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transactionItems, setTransactionItems] = useState<TransactionItem[]>([
     { id: crypto.randomUUID(), type: "product", itemId: "", quantity: 1 }
   ]);
+  
+  // Customer selection state
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [customerSearchValue, setCustomerSearchValue] = useState("");
   
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -69,6 +91,10 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
   });
 
   const isRndOrPromo = formData.status === "rnd" || formData.status === "promo";
+  const isSaleOrBonus = formData.status === "sale" || formData.status === "bonus";
+  
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const customerDisplayName = selectedCustomer?.name || customerSearchValue;
 
   const addTransactionItem = useCallback(() => {
     setTransactionItems(prev => [...prev, { id: crypto.randomUUID(), type: "product", itemId: "", quantity: 1 }]);
@@ -113,6 +139,7 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
           status: formData.status,
           items: validItems,
           description: formData.description,
+          customerName: customerDisplayName || undefined,
         });
       }
       
@@ -125,8 +152,28 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
         manualWeight: 0,
       });
       setTransactionItems([{ id: crypto.randomUUID(), type: "product", itemId: "", quantity: 1 }]);
+      setSelectedCustomerId("");
+      setCustomerSearchValue("");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+  
+  const handleAddNewCustomer = async () => {
+    if (!customerSearchValue.trim()) return;
+    
+    try {
+      const newCustomer = await createCustomer({
+        name: customerSearchValue.trim(),
+        isMember: false,
+      });
+      if (newCustomer) {
+        setSelectedCustomerId(newCustomer.id);
+        setCustomerOpen(false);
+        toast.success(`Customer "${customerSearchValue}" berhasil ditambahkan`);
+      }
+    } catch (error) {
+      toast.error("Gagal menambahkan customer baru");
     }
   };
 
@@ -235,6 +282,103 @@ export function TransactionForm({ products, lineups, bundles, onSubmit }: Transa
             </Select>
           </div>
         </div>
+
+        {/* Customer Selection - only for sale and bonus */}
+        {isSaleOrBonus && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              Nama Pembeli (Opsional)
+            </Label>
+            <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={customerOpen}
+                  className="w-full justify-between h-11 font-normal"
+                >
+                  {customerDisplayName || "Pilih atau ketik nama pembeli..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Cari atau ketik nama baru..." 
+                    value={customerSearchValue}
+                    onValueChange={setCustomerSearchValue}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className="p-2 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Pelanggan tidak ditemukan
+                        </p>
+                        {customerSearchValue.trim() && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={handleAddNewCustomer}
+                            className="gap-1"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Tambah "{customerSearchValue}"
+                          </Button>
+                        )}
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup heading="Pelanggan Tersimpan">
+                      {customers.map((customer) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.name}
+                          onSelect={() => {
+                            setSelectedCustomerId(customer.id);
+                            setCustomerSearchValue(customer.name);
+                            setCustomerOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span>{customer.name}</span>
+                            {customer.phone && (
+                              <span className="text-xs text-muted-foreground">{customer.phone}</span>
+                            )}
+                          </div>
+                          {customer.isMember && (
+                            <Badge variant="secondary" className="ml-auto text-[10px]">Member</Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                    {customerSearchValue.trim() && !customers.some(c => c.name.toLowerCase() === customerSearchValue.toLowerCase()) && (
+                      <CommandGroup heading="Buat Baru">
+                        <CommandItem
+                          value={`new-${customerSearchValue}`}
+                          onSelect={handleAddNewCustomer}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Tambah "{customerSearchValue}" sebagai pelanggan baru
+                        </CommandItem>
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {customerSearchValue && !selectedCustomerId && (
+              <p className="text-xs text-muted-foreground">
+                Menggunakan nama manual: {customerSearchValue}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Conditional Content */}
         {isRndOrPromo ? (

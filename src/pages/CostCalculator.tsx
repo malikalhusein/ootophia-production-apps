@@ -75,6 +75,25 @@ export default function CostCalculator() {
     });
   };
 
+  const handleDeleteBatch = (id: string) => {
+    // First delete all lineups in this batch
+    const batchLineupsToDelete = lineups.filter(l => l.batchId === id);
+    batchLineupsToDelete.forEach(lineup => {
+      deleteLineup(lineup.id);
+    });
+    
+    // Then delete the batch
+    deleteBatch(id, {
+      onSuccess: () => {
+        toast({
+          title: "Batch Deleted",
+          description: "Batch and all its lineups have been deleted.",
+        });
+        handleBackToAllBatches();
+      },
+    });
+  };
+
   const handleAddLineup = () => {
     if (!selectedBatch) return;
     
@@ -161,6 +180,7 @@ export default function CostCalculator() {
           onSelectBatch={handleSelectBatch}
           onCreateBatch={handleCreateBatch}
           onUpdateBatch={handleUpdateBatch}
+          onDeleteBatch={handleDeleteBatch}
           getNextBatchCode={getNextBatchCode}
           onBackToAllBatches={handleBackToAllBatches}
         />
@@ -194,8 +214,10 @@ export default function CostCalculator() {
         onSelectBatch={handleSelectBatch}
         onCreateBatch={handleCreateBatch}
         onUpdateBatch={handleUpdateBatch}
+        onDeleteBatch={handleDeleteBatch}
         getNextBatchCode={getNextBatchCode}
         onBackToAllBatches={handleBackToAllBatches}
+        lineupCount={batchLineups.length}
       />
       
       {selectedBatch && (

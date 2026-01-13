@@ -16,11 +16,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Edit2, Plus, Calendar, Tag } from "lucide-react";
+import { ChevronLeft, Edit2, Plus, Calendar, Tag, Trash2 } from "lucide-react";
 import { Batch } from "@/hooks/useBatches";
 import { format } from "date-fns";
 
@@ -30,8 +40,10 @@ interface BatchHeaderProps {
   onSelectBatch: (batchId: string) => void;
   onCreateBatch: (batch: Omit<Batch, "id" | "userId" | "createdAt" | "updatedAt">) => void;
   onUpdateBatch: (id: string, updates: Partial<Batch>) => void;
+  onDeleteBatch: (id: string) => void;
   getNextBatchCode: () => string;
   onBackToAllBatches: () => void;
+  lineupCount?: number;
 }
 
 export function BatchHeader({
@@ -40,11 +52,14 @@ export function BatchHeader({
   onSelectBatch,
   onCreateBatch,
   onUpdateBatch,
+  onDeleteBatch,
   getNextBatchCode,
   onBackToAllBatches,
+  lineupCount = 0,
 }: BatchHeaderProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     theme: "",
@@ -98,6 +113,13 @@ export function BatchHeader({
         startDate: formData.startDate,
       });
       setIsEditDialogOpen(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedBatch) {
+      onDeleteBatch(selectedBatch.id);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -179,15 +201,26 @@ export function BatchHeader({
               </div>
             </div>
 
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={openEditDialog}
-              className="gap-2"
-            >
-              <Edit2 className="h-4 w-4" />
-              Edit Batch
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={openEditDialog}
+                className="gap-2"
+              >
+                <Edit2 className="h-4 w-4" />
+                Edit Batch
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="gap-2 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            </div>
           </div>
 
           {/* Bottom row: Batch metadata */}
@@ -222,6 +255,32 @@ export function BatchHeader({
         onSubmit={handleUpdate}
         submitLabel="Save Changes"
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Batch "{selectedBatch.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the batch
+              {lineupCount > 0 && (
+                <span className="font-medium text-destructive">
+                  {" "}and all {lineupCount} lineup(s) inside it
+                </span>
+              )}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

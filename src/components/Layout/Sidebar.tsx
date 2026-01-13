@@ -24,7 +24,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Cost Calculator", href: "/cost-calculator", icon: Calculator },
+  { name: "Production Cost", href: "/cost-calculator", icon: Calculator },
   { name: "Products", href: "/products", icon: Package },
   { name: "Sales Journal", href: "/sales-journal", icon: Receipt },
   { name: "Profitability", href: "/batch-profitability", icon: BarChart3 },

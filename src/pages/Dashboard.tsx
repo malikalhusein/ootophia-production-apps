@@ -169,6 +169,17 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Analytics Charts - Moved to top for standard ERM dashboard layout */}
+      <AnalyticsCharts 
+        transactions={transactions} 
+        products={products} 
+        lineups={lineups} 
+        bundles={bundles} 
+      />
+
+      {/* Sales Summary */}
+      <SalesSummary transactions={transactions} products={products} bundles={bundles} lineups={lineups} />
+
       {/* Inventory Overview */}
       <Card className="shadow-sm bg-card border-border transition-colors">
         <CardHeader>
@@ -177,7 +188,7 @@ export default function Dashboard() {
         <CardContent className="space-y-4">
           {lineups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No batches created yet. Start by adding a batch in the Cost Calculator.
+              No batches created yet. Start by adding a batch in Production Cost.
             </p>
           ) : (
             lineups.map((lineup) => {
@@ -223,17 +234,6 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
-
-      {/* Analytics Charts */}
-      <AnalyticsCharts 
-        transactions={transactions} 
-        products={products} 
-        lineups={lineups} 
-        bundles={bundles} 
-      />
-
-      {/* Sales Summary */}
-      <SalesSummary transactions={transactions} products={products} bundles={bundles} lineups={lineups} />
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
