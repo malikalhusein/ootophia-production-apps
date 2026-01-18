@@ -74,6 +74,7 @@ export default function SalesJournal() {
     status: "all",
     dateFrom: "",
     dateTo: "",
+    customerName: "",
   });
 
   // Sorting state
@@ -89,6 +90,7 @@ export default function SalesJournal() {
     lineupId?: string;
     manualWeight?: number;
     description: string;
+    customerName?: string;
   }) => {
     const isRndOrPromo = data.status === "rnd" || data.status === "promo";
     
@@ -130,6 +132,7 @@ export default function SalesJournal() {
             quantity: item.quantity,
             totalValue: calculatedTotalValue,
             description: data.description,
+            customerName: data.customerName,
           };
           
           const result = await createTransaction(transaction);
@@ -163,6 +166,7 @@ export default function SalesJournal() {
             quantity: item.quantity,
             totalValue: bundle ? bundle.customPrice * item.quantity : 0,
             description: data.description,
+            customerName: data.customerName,
           };
           
           const result = await createTransaction(transaction);
@@ -248,6 +252,10 @@ export default function SalesJournal() {
       if (filter.status !== "all" && t.status !== filter.status) return false;
       if (filter.dateFrom && t.date < filter.dateFrom) return false;
       if (filter.dateTo && t.date > filter.dateTo) return false;
+      if (filter.customerName) {
+        const customerLower = filter.customerName.toLowerCase();
+        if (!t.customerName?.toLowerCase().includes(customerLower)) return false;
+      }
       if (filter.search) {
         const searchLower = filter.search.toLowerCase();
         return t.description?.toLowerCase().includes(searchLower);
@@ -508,13 +516,22 @@ export default function SalesJournal() {
         
         {/* Filters */}
         <div className="space-y-4 mb-6">
-          <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5 sm:col-span-2">
+          <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-1.5">
               <Label className="text-xs font-medium">Cari Transaksi</Label>
               <Input
-                placeholder="Cari berdasarkan keterangan..."
+                placeholder="Cari keterangan..."
                 value={filter.search}
                 onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Nama Pembeli</Label>
+              <Input
+                placeholder="Cari nama pembeli..."
+                value={filter.customerName}
+                onChange={(e) => setFilter(prev => ({ ...prev, customerName: e.target.value }))}
                 className="h-10"
               />
             </div>
@@ -553,7 +570,7 @@ export default function SalesJournal() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setFilter({ search: "", status: "all", dateFrom: "", dateTo: "" })}
+              onClick={() => setFilter({ search: "", status: "all", dateFrom: "", dateTo: "", customerName: "" })}
               className="text-muted-foreground h-8"
             >
               Reset Filter
