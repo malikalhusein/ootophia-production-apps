@@ -72,6 +72,7 @@ export interface Transaction {
   quantity: number;
   totalValue: number;
   description: string;
+  customerName?: string;
 }
 
 export interface AppSettings {

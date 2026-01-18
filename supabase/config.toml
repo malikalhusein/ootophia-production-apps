@@ -1,1 +1,4 @@
 project_id = "wjcgxdjpevhzcnuakhqv"
+
+[functions.pos-api]
+verify_jwt = false

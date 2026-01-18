@@ -29,6 +29,7 @@ export function useTransactions() {
         quantity: Number(transaction.quantity),
         totalValue: Number(transaction.total_value),
         description: transaction.description || '',
+        customerName: transaction.customer_name || undefined,
       }));
     },
     enabled: !!user,
@@ -48,6 +49,7 @@ export function useTransactions() {
           quantity: transaction.quantity,
           total_value: transaction.totalValue,
           description: transaction.description,
+          customer_name: transaction.customerName || null,
         })
         .select()
         .single();
@@ -74,6 +76,7 @@ export function useTransactions() {
       if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
       if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName || null;
 
       const { error } = await supabase
         .from('transactions')

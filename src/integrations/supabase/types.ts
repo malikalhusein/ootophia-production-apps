@@ -533,6 +533,7 @@ export type Database = {
         Row: {
           bundle_id: string | null
           created_at: string | null
+          customer_name: string | null
           date: string
           description: string | null
           id: string
@@ -546,6 +547,7 @@ export type Database = {
         Insert: {
           bundle_id?: string | null
           created_at?: string | null
+          customer_name?: string | null
           date: string
           description?: string | null
           id?: string
@@ -559,6 +561,7 @@ export type Database = {
         Update: {
           bundle_id?: string | null
           created_at?: string | null
+          customer_name?: string | null
           date?: string
           description?: string | null
           id?: string
