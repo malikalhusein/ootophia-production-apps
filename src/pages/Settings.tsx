@@ -2,14 +2,16 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useProducts } from "@/hooks/useProducts";
 import { useLineups } from "@/hooks/useLineups";
 import { calculateCostPerGram, calculateProductHPP } from "@/lib/calculations";
 import { toast } from "sonner";
-import { RefreshCw, Database, Download, Upload, AlertTriangle, Trash2 } from "lucide-react";
+import { RefreshCw, Database, Download, Upload, AlertTriangle, Trash2, Settings as SettingsIcon, Users } from "lucide-react";
 import { exportAllData, downloadAsJson, importData, clearAllData, ArchiveData } from "@/lib/dataArchive";
 import {
   AlertDialog,
@@ -23,6 +25,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { BusinessProfileForm } from "@/components/Settings/BusinessProfileForm";
+import { AccountManagement } from "@/components/Settings/AccountManagement";
 
 const themes = [
   { value: "green", label: "Green", color: "hsl(145, 60%, 45%)" },
@@ -33,6 +36,7 @@ const themes = [
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { transactions, updateTransaction } = useTransactions();
   const { products } = useProducts();
   const { lineups } = useLineups();
@@ -161,190 +165,218 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      {/* Business Profile */}
-      <BusinessProfileForm />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold">Pengaturan</h1>
+        <p className="text-muted-foreground">Kelola preferensi dan konfigurasi aplikasi</p>
+      </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Theme Color</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Label>Choose your primary color</Label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {themes.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => setTheme(t.value)}
-                className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                  theme === t.value
-                    ? "border-primary bg-primary-lighter"
-                    : "border-border hover:border-primary/50"
-                )}
-              >
-                <div
-                  className="w-12 h-12 rounded-full"
-                  style={{ backgroundColor: t.color }}
-                />
-                <span className="text-sm font-medium">{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="general" className="gap-2">
+            <SettingsIcon className="h-4 w-4" />
+            Umum
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="accounts" className="gap-2">
+              <Users className="h-4 w-4" />
+              Manajemen Akun
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Data Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Export/Import Section */}
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium">Backup & Restore</p>
-              <p className="text-xs text-muted-foreground">
-                Export semua data untuk arsip atau import data dari backup sebelumnya
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                variant="outline" 
-                onClick={handleExport}
-                disabled={isExporting}
-                className="gap-2"
-              >
-                <Download className={cn("h-4 w-4", isExporting && "animate-pulse")} />
-                {isExporting ? "Exporting..." : "Export Data"}
-              </Button>
-              
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" disabled={isImporting}>
-                    <Upload className={cn("h-4 w-4", isImporting && "animate-pulse")} />
-                    {isImporting ? "Importing..." : "Import Data"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-500" />
-                      Import Data dari Backup
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-2">
-                      <p>
-                        Import akan <strong>menghapus semua data yang ada</strong> dan menggantinya dengan data dari file backup.
-                      </p>
-                      <p className="text-amber-600 dark:text-amber-400">
-                        Pastikan Anda sudah export data saat ini sebelum melanjutkan!
-                      </p>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleImportClick}>
-                      Pilih File Backup
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
-            
-            <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg space-y-1">
-              <p><strong>Export mencakup:</strong></p>
-              <p>• {lineups.length} batch produksi</p>
-              <p>• {products.length} produk</p>
-              <p>• {transactions.length} transaksi</p>
-            </div>
-          </div>
+        <TabsContent value="general" className="space-y-6 max-w-2xl">
+          {/* Business Profile */}
+          <BusinessProfileForm />
 
-          {/* Clear Data Section */}
-          <div className="border-t pt-4 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-destructive">Reset Data</p>
-              <p className="text-xs text-muted-foreground">
-                Hapus semua data untuk memulai dari awal (batch baru, stock opname, dll)
-              </p>
-            </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="gap-2" disabled={isClearing}>
-                  <Trash2 className={cn("h-4 w-4", isClearing && "animate-spin")} />
-                  {isClearing ? "Menghapus..." : "Hapus Semua Data"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                    <AlertTriangle className="h-5 w-5" />
-                    Hapus Semua Data?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>
-                      Tindakan ini akan <strong>menghapus semua data secara permanen</strong>:
-                    </p>
-                    <ul className="list-disc list-inside text-sm">
-                      <li>Semua batch produksi dan roast logs</li>
-                      <li>Semua produk dan stok</li>
-                      <li>Semua transaksi dan invoice</li>
-                      <li>Semua data pelanggan</li>
-                    </ul>
-                    <p className="text-destructive font-medium">
-                      Data yang dihapus tidak dapat dikembalikan!
-                    </p>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Batal</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleClearData}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Warna Tema</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Label>Pilih warna utama</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {themes.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => setTheme(t.value)}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                      theme === t.value
+                        ? "border-primary bg-primary-lighter"
+                        : "border-border hover:border-primary/50"
+                    )}
                   >
-                    Ya, Hapus Semua
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-
-          {/* Recalculate Section */}
-          <div className="border-t pt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Recalculate Transaksi Lama</p>
-                <p className="text-xs text-muted-foreground">
-                  Update nilai transaksi produk yang memiliki total_value = 0 berdasarkan HPP saat ini
-                </p>
+                    <div
+                      className="w-12 h-12 rounded-full"
+                      style={{ backgroundColor: t.color }}
+                    />
+                    <span className="text-sm font-medium">{t.label}</span>
+                  </button>
+                ))}
               </div>
-              {zeroValueTransactions.length > 0 && (
-                <span className="text-xs px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  {zeroValueTransactions.length} transaksi
-                </span>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              onClick={handleRecalculateTransactions}
-              disabled={isRecalculating || zeroValueTransactions.length === 0}
-              className="gap-2"
-            >
-              <RefreshCw className={cn("h-4 w-4", isRecalculating && "animate-spin")} />
-              {isRecalculating ? "Memproses..." : "Recalculate"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Manajemen Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Export/Import Section */}
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Backup & Restore</p>
+                  <p className="text-xs text-muted-foreground">
+                    Export semua data untuk arsip atau import data dari backup sebelumnya
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="gap-2"
+                  >
+                    <Download className={cn("h-4 w-4", isExporting && "animate-pulse")} />
+                    {isExporting ? "Exporting..." : "Export Data"}
+                  </Button>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="gap-2" disabled={isImporting}>
+                        <Upload className={cn("h-4 w-4", isImporting && "animate-pulse")} />
+                        {isImporting ? "Importing..." : "Import Data"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="h-5 w-5 text-amber-500" />
+                          Import Data dari Backup
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-2">
+                          <p>
+                            Import akan <strong>menghapus semua data yang ada</strong> dan menggantinya dengan data dari file backup.
+                          </p>
+                          <p className="text-amber-600 dark:text-amber-400">
+                            Pastikan Anda sudah export data saat ini sebelum melanjutkan!
+                          </p>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleImportClick}>
+                          Pilih File Backup
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+                
+                <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg space-y-1">
+                  <p><strong>Export mencakup:</strong></p>
+                  <p>• {lineups.length} batch produksi</p>
+                  <p>• {products.length} produk</p>
+                  <p>• {transactions.length} transaksi</p>
+                </div>
+              </div>
+
+              {/* Clear Data Section */}
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-destructive">Reset Data</p>
+                  <p className="text-xs text-muted-foreground">
+                    Hapus semua data untuk memulai dari awal (batch baru, stock opname, dll)
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="gap-2" disabled={isClearing}>
+                      <Trash2 className={cn("h-4 w-4", isClearing && "animate-spin")} />
+                      {isClearing ? "Menghapus..." : "Hapus Semua Data"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                        Hapus Semua Data?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <p>
+                          Tindakan ini akan <strong>menghapus semua data secara permanen</strong>:
+                        </p>
+                        <ul className="list-disc list-inside text-sm">
+                          <li>Semua batch produksi dan roast logs</li>
+                          <li>Semua produk dan stok</li>
+                          <li>Semua transaksi dan invoice</li>
+                          <li>Semua data pelanggan</li>
+                        </ul>
+                        <p className="text-destructive font-medium">
+                          Data yang dihapus tidak dapat dikembalikan!
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleClearData}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Ya, Hapus Semua
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+
+              {/* Recalculate Section */}
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Recalculate Transaksi Lama</p>
+                    <p className="text-xs text-muted-foreground">
+                      Update nilai transaksi produk yang memiliki total_value = 0 berdasarkan HPP saat ini
+                    </p>
+                  </div>
+                  {zeroValueTransactions.length > 0 && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      {zeroValueTransactions.length} transaksi
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleRecalculateTransactions}
+                  disabled={isRecalculating || zeroValueTransactions.length === 0}
+                  className="gap-2"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRecalculating && "animate-spin")} />
+                  {isRecalculating ? "Memproses..." : "Recalculate"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="accounts">
+            <AccountManagement />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }
