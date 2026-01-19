@@ -16,26 +16,87 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useUserRole, AppRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface SidebarProps {
   onNavigate?: () => void;
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Production Cost", href: "/cost-calculator", icon: Calculator },
-  { name: "Products", href: "/products", icon: Package },
-  { name: "Sales Journal", href: "/sales-journal", icon: Receipt },
-  { name: "Profitability", href: "/batch-profitability", icon: BarChart3 },
-  { name: "Riwayat Invoice", href: "/invoice-history", icon: FileText },
-  { name: "Pelanggan", href: "/customers", icon: Users },
-  { name: "Settings", href: "/settings", icon: Settings },
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles: AppRole[]; // Which roles can access this menu
+}
+
+const navigation: NavItem[] = [
+  { 
+    name: "Dashboard", 
+    href: "/", 
+    icon: LayoutDashboard,
+    roles: ["admin", "sales", "reseller"]
+  },
+  { 
+    name: "Production Cost", 
+    href: "/cost-calculator", 
+    icon: Calculator,
+    roles: ["admin"] // Only admin can access production costs
+  },
+  { 
+    name: "Products", 
+    href: "/products", 
+    icon: Package,
+    roles: ["admin", "sales"] // Admin and Sales can manage products
+  },
+  { 
+    name: "Sales Journal", 
+    href: "/sales-journal", 
+    icon: Receipt,
+    roles: ["admin", "sales", "reseller"] // All roles can access sales
+  },
+  { 
+    name: "Profitability", 
+    href: "/batch-profitability", 
+    icon: BarChart3,
+    roles: ["admin"] // Only admin can see profitability
+  },
+  { 
+    name: "Riwayat Invoice", 
+    href: "/invoice-history", 
+    icon: FileText,
+    roles: ["admin", "sales"]
+  },
+  { 
+    name: "Pelanggan", 
+    href: "/customers", 
+    icon: Users,
+    roles: ["admin", "sales", "reseller"]
+  },
+  { 
+    name: "Settings", 
+    href: "/settings", 
+    icon: Settings,
+    roles: ["admin", "sales", "reseller"]
+  },
 ];
+
+const roleLabels: Record<AppRole, { label: string; color: string }> = {
+  admin: { label: "Admin", color: "bg-red-500/10 text-red-600" },
+  sales: { label: "Sales", color: "bg-blue-500/10 text-blue-600" },
+  reseller: { label: "Reseller", color: "bg-green-500/10 text-green-600" },
+};
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { signOut } = useAuth();
   const { mode, toggleMode } = useTheme();
+  const { role, isLoading } = useUserRole();
+
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter(item => 
+    role && item.roles.includes(role)
+  );
   
   return (
     <div className="flex h-full flex-col bg-sidebar border-r border-sidebar-border">
@@ -52,9 +113,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </div>
       </div>
 
+      {/* Role Badge */}
+      {role && !isLoading && (
+        <div className="px-4 py-2 border-b border-sidebar-border">
+          <Badge className={cn("w-full justify-center", roleLabels[role].color)}>
+            {roleLabels[role].label}
+          </Badge>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => (
+        {filteredNavigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}

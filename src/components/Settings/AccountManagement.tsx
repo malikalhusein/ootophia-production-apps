@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -27,12 +29,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAllUsers, useManageUsers, AppRole, AccountStatus, UserProfile } from "@/hooks/useUserRole";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, X, Shield, ShoppingBag, Users, Loader2 } from "lucide-react";
+import { Check, X, Shield, ShoppingBag, Users, Loader2, Plus, Mail, Lock, User } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { z } from "zod";
 
 const roleLabels: Record<AppRole, { label: string; icon: React.ReactNode; color: string }> = {
   admin: { label: "Administrator", icon: <Shield className="h-3 w-3" />, color: "bg-red-500/10 text-red-600" },
@@ -46,9 +59,17 @@ const statusLabels: Record<AccountStatus, { label: string; color: string }> = {
   rejected: { label: "Ditolak", color: "bg-red-500/10 text-red-600" },
 };
 
+const createUserSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
+  fullName: z.string().min(2, "Nama minimal 2 karakter"),
+  username: z.string().min(3, "Username minimal 3 karakter").regex(/^[a-zA-Z0-9_]+$/, "Username hanya boleh huruf, angka, dan underscore"),
+  role: z.enum(["admin", "sales", "reseller"]),
+});
+
 export function AccountManagement() {
   const { user } = useAuth();
-  const { data: users, isLoading } = useAllUsers();
+  const { data: users, isLoading, refetch } = useAllUsers();
   const { updateAccountStatus, updateUserRole, isUpdating } = useManageUsers();
   
   const [confirmAction, setConfirmAction] = useState<{
@@ -56,6 +77,18 @@ export function AccountManagement() {
     user: UserProfile;
     newRole?: AppRole;
   } | null>(null);
+
+  // Create user dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+    username: "",
+    role: "reseller" as AppRole,
+  });
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
   const pendingUsers = users?.filter(u => u.accountStatus === "pending") || [];
   const allOtherUsers = users?.filter(u => u.accountStatus !== "pending") || [];
@@ -90,6 +123,123 @@ export function AccountManagement() {
     setConfirmAction(null);
   };
 
+  const handleCreateUser = async () => {
+    setCreateErrors({});
+    
+    // Validate
+    const validation = createUserSchema.safeParse(createForm);
+    if (!validation.success) {
+      const errors: Record<string, string> = {};
+      validation.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0] as string] = err.message;
+        }
+      });
+      setCreateErrors(errors);
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // Check if username exists
+      const { data: existingUsername } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("username", createForm.username.toLowerCase())
+        .single();
+
+      if (existingUsername) {
+        setCreateErrors({ username: "Username sudah digunakan" });
+        setIsCreating(false);
+        return;
+      }
+
+      // Create user via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: createForm.email,
+        password: createForm.password,
+        email_confirm: true,
+      });
+
+      if (authError) {
+        // Fallback: use signUp if admin API not available
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: createForm.email,
+          password: createForm.password,
+          options: {
+            data: {
+              full_name: createForm.fullName,
+              username: createForm.username.toLowerCase(),
+            }
+          }
+        });
+
+        if (signUpError) {
+          if (signUpError.message.includes("already registered")) {
+            toast.error("Email sudah terdaftar");
+          } else {
+            toast.error("Gagal membuat akun: " + signUpError.message);
+          }
+          setIsCreating(false);
+          return;
+        }
+
+        if (signUpData.user) {
+          // Update profile
+          await supabase
+            .from("profiles")
+            .update({
+              full_name: createForm.fullName,
+              username: createForm.username.toLowerCase(),
+              account_status: "approved",
+            })
+            .eq("id", signUpData.user.id);
+
+          // Update role
+          await supabase
+            .from("user_roles")
+            .upsert({
+              user_id: signUpData.user.id,
+              role: createForm.role,
+            }, { onConflict: "user_id,role" });
+        }
+      } else if (authData.user) {
+        // Admin API worked, update profile and role
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: createForm.fullName,
+            username: createForm.username.toLowerCase(),
+            account_status: "approved",
+          })
+          .eq("id", authData.user.id);
+
+        await supabase
+          .from("user_roles")
+          .upsert({
+            user_id: authData.user.id,
+            role: createForm.role,
+          }, { onConflict: "user_id,role" });
+      }
+
+      toast.success("Akun berhasil dibuat");
+      setCreateDialogOpen(false);
+      setCreateForm({
+        email: "",
+        password: "",
+        fullName: "",
+        username: "",
+        role: "reseller",
+      });
+      refetch();
+    } catch (error) {
+      console.error("Create user error:", error);
+      toast.error("Gagal membuat akun");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -102,6 +252,136 @@ export function AccountManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Create User Button */}
+      <div className="flex justify-end">
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Buat Akun Baru
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Buat Akun Baru</DialogTitle>
+              <DialogDescription>
+                Buat akun pengguna baru dengan role yang ditentukan. Akun akan langsung aktif.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-fullname" className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Nama Lengkap
+                </Label>
+                <Input
+                  id="create-fullname"
+                  placeholder="John Doe"
+                  value={createForm.fullName}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
+                />
+                {createErrors.fullName && (
+                  <p className="text-xs text-destructive">{createErrors.fullName}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-username" className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Username
+                </Label>
+                <Input
+                  id="create-username"
+                  placeholder="johndoe"
+                  value={createForm.username}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, username: e.target.value.toLowerCase() }))}
+                />
+                {createErrors.username && (
+                  <p className="text-xs text-destructive">{createErrors.username}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Email
+                </Label>
+                <Input
+                  id="create-email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                />
+                {createErrors.email && (
+                  <p className="text-xs text-destructive">{createErrors.email}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  Password
+                </Label>
+                <Input
+                  id="create-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
+                />
+                {createErrors.password && (
+                  <p className="text-xs text-destructive">{createErrors.password}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select
+                  value={createForm.role}
+                  onValueChange={(value: AppRole) => setCreateForm(prev => ({ ...prev, role: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Administrator
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="sales">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4" />
+                        Sales
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="reseller">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Reseller
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleCreateUser} disabled={isCreating}>
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Membuat...
+                  </>
+                ) : (
+                  "Buat Akun"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       {/* Pending Approvals */}
       {pendingUsers.length > 0 && (
         <Card className="border-yellow-500/30">

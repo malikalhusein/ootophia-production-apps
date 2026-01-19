@@ -1,16 +1,20 @@
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Package, DollarSign, Activity, AlertTriangle } from "lucide-react";
+import { TrendingUp, Package, DollarSign, Activity, AlertTriangle, Users, Shield } from "lucide-react";
 import { useLineups } from "@/hooks/useLineups";
 import { useProducts } from "@/hooks/useProducts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBundles } from "@/hooks/useBundles";
 import { useInventoryAlerts } from "@/hooks/useInventoryAlerts";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAllUsers } from "@/hooks/useUserRole";
 import { formatCurrency, calculateCostPerGram, calculateWeightForSale, calculateProductHPP } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { SalesSummary } from "@/components/Dashboard/SalesSummary";
 import { AnalyticsCharts } from "@/components/Dashboard/AnalyticsCharts";
+import { SalesDashboard } from "@/components/Dashboard/SalesDashboard";
+import { ResellerDashboard } from "@/components/Dashboard/ResellerDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -19,9 +23,11 @@ export default function Dashboard() {
   const { products, isLoading: productsLoading } = useProducts();
   const { transactions, isLoading: transactionsLoading } = useTransactions();
   const { bundles, isLoading: bundlesLoading } = useBundles();
+  const { role, isAdmin, isSales, isReseller, isLoading: roleLoading } = useUserRole();
+  const { data: allUsers } = useAllUsers();
   const queryClient = useQueryClient();
 
-  const isLoading = lineupsLoading || productsLoading || transactionsLoading || bundlesLoading;
+  const isLoading = lineupsLoading || productsLoading || transactionsLoading || bundlesLoading || roleLoading;
 
   // Set up realtime subscription for transactions
   useEffect(() => {
@@ -35,7 +41,6 @@ export default function Dashboard() {
           table: 'transactions'
         },
         () => {
-          // Invalidate all relevant queries when transactions change
           queryClient.invalidateQueries({ queryKey: ['transactions'] });
           queryClient.invalidateQueries({ queryKey: ['products'] });
         }
@@ -83,17 +88,12 @@ export default function Dashboard() {
     return sellingPrice;
   };
 
-  // Calculate KPIs with fallback for transactions with totalValue = 0
+  // Calculate KPIs
   const totalRevenue = transactions
     .filter((t) => t.status === "sale")
     .reduce((sum, t) => {
-      // Use totalValue if available, otherwise calculate from product/bundle price
-      if (t.totalValue > 0) {
-        return sum + t.totalValue;
-      }
-      if (t.productId) {
-        return sum + getProductSellingPrice(t.productId) * t.quantity;
-      }
+      if (t.totalValue > 0) return sum + t.totalValue;
+      if (t.productId) return sum + getProductSellingPrice(t.productId) * t.quantity;
       if (t.bundleId) {
         const bundle = bundles.find(b => b.id === t.bundleId);
         return sum + (bundle?.customPrice || 0) * t.quantity;
@@ -108,6 +108,10 @@ export default function Dashboard() {
   const activeLineups = lineups.length;
   const totalProducts = products.length;
 
+  // Admin-specific metrics
+  const pendingUsers = allUsers?.filter(u => u.accountStatus === "pending").length || 0;
+  const totalUsers = allUsers?.length || 0;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -116,10 +120,29 @@ export default function Dashboard() {
     );
   }
 
+  // Show role-specific dashboard
+  if (isReseller) {
+    return <ResellerDashboard />;
+  }
+
+  if (isSales) {
+    return <SalesDashboard />;
+  }
+
+  // Admin Dashboard (full access)
   return (
     <div className="space-y-6">
+      {/* Admin Header */}
+      <div className="flex items-center gap-2">
+        <Shield className="h-6 w-6 text-primary" />
+        <div>
+          <h1 className="text-2xl font-bold">Administrator Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Akses penuh ke semua fitur dan metrik</p>
+        </div>
+      </div>
+
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="shadow-sm bg-card border-border transition-colors">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -167,9 +190,44 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-foreground transition-colors">{totalProducts}</div>
           </CardContent>
         </Card>
+
+        <Card className="shadow-sm bg-card border-border transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Users
+            </CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground transition-colors">{totalUsers}</div>
+            {pendingUsers > 0 && (
+              <p className="text-xs text-amber-600">{pendingUsers} pending</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Analytics Charts - Moved to top for standard ERM dashboard layout */}
+      {/* Pending Users Alert */}
+      {pendingUsers > 0 && (
+        <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="h-10 w-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+              <Users className="h-5 w-5 text-yellow-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-yellow-600">Pendaftaran Menunggu Persetujuan</p>
+              <p className="text-sm text-muted-foreground">
+                {pendingUsers} pengguna menunggu persetujuan akun. Kelola di Settings → Manajemen Akun.
+              </p>
+            </div>
+            <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
+              {pendingUsers} pending
+            </Badge>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Analytics Charts */}
       <AnalyticsCharts 
         transactions={transactions} 
         products={products} 
