@@ -5,8 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, AlertTriangle } from "lucide-react";
-import { Lineup, RoastLog, Product, Transaction } from "@/types";
+import { Plus, Trash2, AlertTriangle, Coffee, Leaf } from "lucide-react";
+import { Lineup, RoastLog, Product, Transaction, TeaIdentity, CoffeeIdentity } from "@/types";
 import { 
   calculateTotalInitialCost, 
   calculateTotalRoastedOutput,
@@ -19,6 +19,10 @@ import {
 } from "@/lib/calculations";
 import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
+import { CoffeeIdentityForm } from "./CoffeeIdentityForm";
+import { TeaIdentityForm } from "./TeaIdentityForm";
+import { TeaProductionForm } from "./TeaProductionForm";
+import { Badge } from "@/components/ui/badge";
 
 interface LineupFormProps {
   lineup: Lineup;
@@ -120,10 +124,25 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
     }
   };
 
-  const handleIdentityChange = useCallback((field: string, value: string) => {
+  const handleIdentityChange = useCallback((field: keyof CoffeeIdentity, value: string) => {
     setLocalLineup(prev => ({
       ...prev,
       identity: { ...prev.identity, [field]: value },
+    }));
+  }, []);
+
+  const handleTeaIdentityChange = useCallback((field: keyof TeaIdentity, value: string) => {
+    setLocalLineup(prev => ({
+      ...prev,
+      teaIdentity: { ...(prev.teaIdentity || {
+        origin: '',
+        teaType: '',
+        teaGrade: '',
+        harvestSeason: '',
+        processingMethod: '',
+        supplier: '',
+        tastingNotes: '',
+      }), [field]: value },
     }));
   }, []);
 
@@ -147,8 +166,27 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
     output: log.outputWeight,
   })), [localLineup.roastLogs]);
 
+  const isTea = localLineup.category === 'tea';
+  const defaultTeaIdentity: TeaIdentity = {
+    origin: '',
+    teaType: '',
+    teaGrade: '',
+    harvestSeason: '',
+    processingMethod: '',
+    supplier: '',
+    tastingNotes: '',
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Category Badge */}
+      <div className="flex items-center gap-2">
+        <Badge variant={isTea ? "secondary" : "default"} className="gap-1">
+          {isTea ? <Leaf className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
+          {isTea ? "Tea" : "Coffee"}
+        </Badge>
+      </div>
+
       {hasUnsavedChanges && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 md:p-4 bg-accent/10 border border-accent rounded-lg">
           <p className="text-xs sm:text-sm text-muted-foreground">You have unsaved changes</p>
@@ -158,97 +196,29 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
         </div>
       )}
       <Accordion type="single" collapsible defaultValue="identity" className="w-full">
-        {/* Coffee Identity */}
+        {/* Product Identity - Conditional based on category */}
         <AccordionItem value="identity">
           <AccordionTrigger className="text-sm md:text-base font-semibold">
-            Coffee Identity
+            {isTea ? "Tea Identity" : "Coffee Identity"}
           </AccordionTrigger>
           <AccordionContent className="space-y-3 md:space-y-4 pt-3 md:pt-4">
-            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
-              {lineupCode && (
-                <div className="space-y-1.5 md:space-y-2">
-                  <Label htmlFor="lineupCode" className="text-xs md:text-sm">Product Code</Label>
-                  <Input
-                    id="lineupCode"
-                    value={lineupCode}
-                    readOnly
-                    disabled
-                    className="h-9 md:h-10 text-sm font-mono bg-muted"
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="name" className="text-xs md:text-sm">Lineup Name</Label>
-                <Input
-                  id="name"
-                  value={localLineup.name}
-                  onChange={(e) => setLocalLineup(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Ethiopia Yirgacheffe"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="origin" className="text-xs md:text-sm">Origin</Label>
-                <Input
-                  id="origin"
-                  value={localLineup.identity.origin}
-                  onChange={(e) => handleIdentityChange('origin', e.target.value)}
-                  placeholder="e.g., Ethiopia"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="process" className="text-xs md:text-sm">Process</Label>
-                <Input
-                  id="process"
-                  value={localLineup.identity.process}
-                  onChange={(e) => handleIdentityChange('process', e.target.value)}
-                  placeholder="e.g., Washed"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="variety" className="text-xs md:text-sm">Variety</Label>
-                <Input
-                  id="variety"
-                  value={localLineup.identity.variety}
-                  onChange={(e) => handleIdentityChange('variety', e.target.value)}
-                  placeholder="e.g., Heirloom"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="processor" className="text-xs md:text-sm">Processor</Label>
-                <Input
-                  id="processor"
-                  value={localLineup.identity.processor}
-                  onChange={(e) => handleIdentityChange('processor', e.target.value)}
-                  placeholder="Processor name"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="roaster" className="text-xs md:text-sm">Roaster</Label>
-                <Input
-                  id="roaster"
-                  value={localLineup.identity.roaster}
-                  onChange={(e) => handleIdentityChange('roaster', e.target.value)}
-                  placeholder="Roaster name"
-                  className="h-9 md:h-10 text-sm"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5 md:space-y-2">
-              <Label htmlFor="tastingNotes" className="text-xs md:text-sm">Tasting Notes</Label>
-              <Textarea
-                id="tastingNotes"
-                value={localLineup.identity.tastingNotes}
-                onChange={(e) => handleIdentityChange('tastingNotes', e.target.value)}
-                placeholder="Describe flavor profile..."
-                rows={3}
-                className="text-sm"
+            {isTea ? (
+              <TeaIdentityForm
+                teaIdentity={localLineup.teaIdentity || defaultTeaIdentity}
+                lineupCode={lineupCode}
+                lineupName={localLineup.name}
+                onNameChange={(name) => setLocalLineup(prev => ({ ...prev, name }))}
+                onTeaIdentityChange={handleTeaIdentityChange}
               />
-            </div>
+            ) : (
+              <CoffeeIdentityForm
+                identity={localLineup.identity}
+                lineupCode={lineupCode}
+                lineupName={localLineup.name}
+                onNameChange={(name) => setLocalLineup(prev => ({ ...prev, name }))}
+                onIdentityChange={handleIdentityChange}
+              />
+            )}
           </AccordionContent>
         </AccordionItem>
 

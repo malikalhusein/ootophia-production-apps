@@ -94,7 +94,7 @@ export default function CostCalculator() {
     });
   };
 
-  const handleAddLineup = () => {
+  const handleAddLineup = (category: "coffee" | "tea" = "coffee") => {
     if (!selectedBatch) return;
     
     const batchLineupsCount = batchLineups.length;
@@ -102,7 +102,7 @@ export default function CostCalculator() {
     
     const newLineup: Lineup = {
       id: generateUUID(),
-      name: `New Lineup ${batchLineupsCount + 1}`,
+      name: category === "tea" ? `New Tea Lineup ${batchLineupsCount + 1}` : `New Lineup ${batchLineupsCount + 1}`,
       identity: {
         origin: "",
         process: "",
@@ -111,6 +111,15 @@ export default function CostCalculator() {
         roaster: "",
         tastingNotes: "",
       },
+      teaIdentity: category === "tea" ? {
+        origin: "",
+        teaType: "",
+        teaGrade: "",
+        harvestSeason: "",
+        processingMethod: "",
+        supplier: "",
+        tastingNotes: "",
+      } : undefined,
       purchaseDate: new Date().toISOString().split("T")[0],
       initialWeight: 0,
       costs: {
@@ -131,7 +140,7 @@ export default function CostCalculator() {
       },
       batchId: selectedBatch.id,
       lineupCode: lineupCode,
-      category: "coffee",
+      category: category,
     };
     
     createLineup(newLineup);
