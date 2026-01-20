@@ -39,6 +39,15 @@ export function useLineups() {
             roaster: lineup.roaster || '',
             tastingNotes: lineup.tasting_notes || '',
           },
+          teaIdentity: {
+            origin: lineup.origin || '',
+            teaType: (lineup.tea_type as "green" | "black" | "oolong" | "white" | "herbal" | "pu-erh" | "") || '',
+            teaGrade: (lineup.tea_grade as "premium" | "standard" | "economy" | "") || '',
+            harvestSeason: (lineup.harvest_season as "spring" | "summer" | "autumn" | "winter" | "") || '',
+            processingMethod: (lineup.processing_method as "orthodox" | "ctc" | "blending" | "aging" | "fermentation" | "") || '',
+            supplier: lineup.processor || '',
+            tastingNotes: lineup.tasting_notes || '',
+          },
           purchaseDate: lineup.purchase_date,
           initialWeight: Number(lineup.initial_weight),
           costs: {
@@ -78,12 +87,12 @@ export function useLineups() {
         .insert({
           user_id: user!.id,
           name: lineup.name,
-          origin: lineup.identity.origin,
+          origin: lineup.category === 'tea' ? lineup.teaIdentity?.origin : lineup.identity.origin,
           process: lineup.identity.process,
           variety: lineup.identity.variety,
-          processor: lineup.identity.processor,
+          processor: lineup.category === 'tea' ? lineup.teaIdentity?.supplier : lineup.identity.processor,
           roaster: lineup.identity.roaster,
-          tasting_notes: lineup.identity.tastingNotes,
+          tasting_notes: lineup.category === 'tea' ? lineup.teaIdentity?.tastingNotes : lineup.identity.tastingNotes,
           purchase_date: lineup.purchaseDate,
           initial_weight: lineup.initialWeight,
           green_beans_price: lineup.costs.greenBeansPrice,
@@ -98,6 +107,10 @@ export function useLineups() {
           batch_id: lineup.batchId || null,
           lineup_code: lineup.lineupCode || null,
           category: lineup.category || 'coffee',
+          tea_type: lineup.teaIdentity?.teaType || null,
+          tea_grade: lineup.teaIdentity?.teaGrade || null,
+          harvest_season: lineup.teaIdentity?.harvestSeason || null,
+          processing_method: lineup.teaIdentity?.processingMethod || null,
         })
         .select()
         .single();
@@ -122,6 +135,15 @@ export function useLineups() {
         if (updates.identity.processor !== undefined) dbUpdates.processor = updates.identity.processor;
         if (updates.identity.roaster !== undefined) dbUpdates.roaster = updates.identity.roaster;
         if (updates.identity.tastingNotes !== undefined) dbUpdates.tasting_notes = updates.identity.tastingNotes;
+      }
+      if (updates.teaIdentity) {
+        if (updates.teaIdentity.origin !== undefined) dbUpdates.origin = updates.teaIdentity.origin;
+        if (updates.teaIdentity.teaType !== undefined) dbUpdates.tea_type = updates.teaIdentity.teaType || null;
+        if (updates.teaIdentity.teaGrade !== undefined) dbUpdates.tea_grade = updates.teaIdentity.teaGrade || null;
+        if (updates.teaIdentity.harvestSeason !== undefined) dbUpdates.harvest_season = updates.teaIdentity.harvestSeason || null;
+        if (updates.teaIdentity.processingMethod !== undefined) dbUpdates.processing_method = updates.teaIdentity.processingMethod || null;
+        if (updates.teaIdentity.supplier !== undefined) dbUpdates.processor = updates.teaIdentity.supplier;
+        if (updates.teaIdentity.tastingNotes !== undefined) dbUpdates.tasting_notes = updates.teaIdentity.tastingNotes;
       }
       if (updates.purchaseDate !== undefined) dbUpdates.purchase_date = updates.purchaseDate;
       if (updates.initialWeight !== undefined) dbUpdates.initial_weight = updates.initialWeight;

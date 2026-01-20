@@ -27,10 +27,21 @@ export interface CoffeeIdentity {
   tastingNotes: string;
 }
 
+export interface TeaIdentity {
+  origin: string;
+  teaType: "green" | "black" | "oolong" | "white" | "herbal" | "pu-erh" | "";
+  teaGrade: "premium" | "standard" | "economy" | "";
+  harvestSeason: "spring" | "summer" | "autumn" | "winter" | "";
+  processingMethod: "orthodox" | "ctc" | "blending" | "aging" | "fermentation" | "";
+  supplier: string;
+  tastingNotes: string;
+}
+
 export interface Lineup {
   id: string;
   name: string;
   identity: CoffeeIdentity;
+  teaIdentity?: TeaIdentity;
   purchaseDate: string;
   initialWeight: number;
   costs: InitialCosts;
@@ -39,7 +50,7 @@ export interface Lineup {
   allocationsUsed: BeanAllocation;
   batchId?: string | null;
   lineupCode?: string | null;
-  category?: "coffee" | "tea";
+  category: "coffee" | "tea";
 }
 
 export interface Product {

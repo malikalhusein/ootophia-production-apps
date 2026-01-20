@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Coffee, Leaf } from "lucide-react";
 import { Lineup, Product, Transaction } from "@/types";
 import { LineupForm } from "./LineupForm";
 import { Batch } from "@/hooks/useBatches";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface LineupTabsProps {
   batch: Batch;
@@ -13,7 +15,7 @@ interface LineupTabsProps {
   transactions: Transaction[];
   activeLineupId: string;
   onSelectLineup: (lineupId: string) => void;
-  onAddLineup: () => void;
+  onAddLineup: (category?: "coffee" | "tea") => void;
   onRemoveLineup: (lineupId: string) => void;
   onUpdateLineup: (id: string, updates: Partial<Lineup>) => void;
   onSaveLineup: (lineup: Lineup) => void;
@@ -39,10 +41,16 @@ export function LineupTabs({
       <Card className="shadow-sm">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <p className="text-muted-foreground mb-4">No lineups in this batch yet</p>
-          <Button onClick={onAddLineup} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add First Lineup
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => onAddLineup("coffee")} className="gap-2">
+              <Coffee className="h-4 w-4" />
+              Add Coffee Lineup
+            </Button>
+            <Button onClick={() => onAddLineup("tea")} variant="secondary" className="gap-2">
+              <Leaf className="h-4 w-4" />
+              Add Tea Lineup
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -61,6 +69,7 @@ export function LineupTabs({
                       value={lineup.id} 
                       className="gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-3 py-2"
                     >
+                      {lineup.category === 'tea' ? <Leaf className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
                       <span className="font-mono text-xs text-muted-foreground">
                         {batch.code}-LU{String(index + 1).padStart(2, "0")}
                       </span>
@@ -81,15 +90,24 @@ export function LineupTabs({
                 ))}
               </TabsList>
               
-              <Button 
-                onClick={onAddLineup} 
-                size="sm" 
-                variant="outline" 
-                className="gap-1 shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-                Add Lineup
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1 shrink-0">
+                    <Plus className="h-4 w-4" />
+                    Add Lineup
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => onAddLineup("coffee")} className="gap-2">
+                    <Coffee className="h-4 w-4" />
+                    Coffee Lineup
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onAddLineup("tea")} className="gap-2">
+                    <Leaf className="h-4 w-4" />
+                    Tea Lineup
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
