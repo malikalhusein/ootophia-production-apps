@@ -14,6 +14,7 @@ import {
   calculateCostPerGram,
   calculateWeightForSale,
   calculateWeightAssignedToProducts,
+  getExpectedShrinkageRange,
   formatCurrency,
   formatWeight
 } from "@/lib/calculations";
@@ -556,12 +557,12 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                 <Pie
                   data={[
                     { 
-                      name: 'Green Beans', 
+                      name: isTea ? 'Tea Leaf' : 'Green Beans', 
                       value: (localLineup.costs.greenBeansPrice * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
                     },
                     { name: 'Shipping', value: localLineup.costs.greenBeansShipping },
                     { 
-                      name: 'Roasting Service', 
+                      name: isTea ? 'Processing Service' : 'Roasting Service', 
                       value: localLineup.costs.roastingServiceType === "perBatch" 
                         ? localLineup.costs.roastingService * localLineup.roastLogs.length
                         : (localLineup.costs.roastingService * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000 
@@ -576,10 +577,10 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  <Cell fill="#22c55e" />
-                  <Cell fill="#f59e0b" />
-                  <Cell fill="#3b82f6" />
-                  <Cell fill="#8b5cf6" />
+                  <Cell fill="hsl(var(--chart-1))" />
+                  <Cell fill="hsl(var(--chart-2))" />
+                  <Cell fill="hsl(var(--chart-3))" />
+                  <Cell fill="hsl(var(--chart-4))" />
                 </Pie>
                 <Tooltip 
                   formatter={(value: number) => formatCurrency(value)} 
@@ -600,28 +601,32 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
             </ResponsiveContainer>
 
             <div className="grid grid-cols-2 gap-2 md:gap-4">
-              <Card className="p-2 md:p-3 border-l-4 border-l-green-500">
+              <Card className="p-2 md:p-3 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-1))' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Green Beans Cost</p>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-1))' }} />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">
+                    {isTea ? "Tea Leaf Cost" : "Green Beans Cost"}
+                  </p>
                 </div>
                 <p className="text-sm md:text-lg font-bold">
                   {formatCurrency((localLineup.costs.greenBeansPrice * localLineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0)) / 1000)}
                 </p>
               </Card>
-              <Card className="p-2 md:p-3 border-l-4 border-l-amber-500">
+              <Card className="p-2 md:p-3 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-2))' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
                   <p className="text-[10px] md:text-xs text-muted-foreground">Shipping Cost</p>
                 </div>
                 <p className="text-sm md:text-lg font-bold">
                   {formatCurrency(localLineup.costs.greenBeansShipping)}
                 </p>
               </Card>
-              <Card className="p-2 md:p-3 border-l-4 border-l-blue-500">
+              <Card className="p-2 md:p-3 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-3))' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <p className="text-[10px] md:text-xs text-muted-foreground">Roasting Cost</p>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
+                  <p className="text-[10px] md:text-xs text-muted-foreground">
+                    {isTea ? "Processing Cost" : "Roasting Cost"}
+                  </p>
                 </div>
                 <p className="text-sm md:text-lg font-bold">
                   {formatCurrency(
@@ -631,9 +636,9 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                   )}
                 </p>
               </Card>
-              <Card className="p-2 md:p-3 border-l-4 border-l-purple-500">
+              <Card className="p-2 md:p-3 border-l-4" style={{ borderLeftColor: 'hsl(var(--chart-4))' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-4))' }} />
                   <p className="text-[10px] md:text-xs text-muted-foreground">Transport Cost</p>
                 </div>
                 <p className="text-sm md:text-lg font-bold">{formatCurrency(localLineup.costs.roastingTransport)}</p>
@@ -648,157 +653,221 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
             Financial Results
           </AccordionTrigger>
           <AccordionContent className="space-y-3 md:space-y-4 pt-3 md:pt-4">
-            <div className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-4">
-              <Card className="p-2 md:p-4 bg-primary/10 border-primary/20">
-                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Total Cost</p>
-                <p className="text-base md:text-xl font-bold text-primary">{formatCurrency(totalCost > 0 ? totalCost : 0)}</p>
-              </Card>
-              <Card className="p-2 md:p-4 bg-accent/10 border-accent/20">
-                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Total Output</p>
-                <p className="text-base md:text-xl font-bold">{formatWeight(totalOutput)}</p>
-              </Card>
-              <Card className="p-2 md:p-4 bg-secondary/10 border-secondary/20">
-                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Shrinkage</p>
-                <p className="text-base md:text-xl font-bold">{shrinkage > 0 ? shrinkage.toFixed(1) : 0}%</p>
-              </Card>
-              <Card className="p-2 md:p-4 bg-green-500/10 border-green-500/20">
-                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Cost Per Gram</p>
-                <p className="text-base md:text-xl font-bold text-green-600">{formatCurrency(costPerGram > 0 ? costPerGram : 0)}</p>
-              </Card>
-            </div>
-            
-            <Card className="p-3 md:p-4">
-              <div className="space-y-1.5 md:space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs md:text-sm font-medium">Weight for Sale</span>
-                  <span className="text-xs md:text-sm font-bold">{formatWeight(weightForSale > 0 ? weightForSale : 0)}</span>
-                </div>
-                <Progress value={totalOutput > 0 ? (weightForSale / totalOutput) * 100 : 0} />
-                <p className="text-[10px] md:text-xs text-muted-foreground">
-                  Track product assignments in the Products section
-                </p>
-              </div>
-            </Card>
+            {(() => {
+              const expectedShrinkage = getExpectedShrinkageRange(isTea ? 'tea' : 'coffee');
+              const shrinkageStatus = shrinkage < expectedShrinkage.min 
+                ? 'excellent' 
+                : shrinkage <= expectedShrinkage.max 
+                  ? 'normal' 
+                  : 'high';
+              
+              return (
+                <>
+                  <div className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-4">
+                    <Card className="p-2 md:p-4 bg-primary/10 border-primary/20">
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Total Cost</p>
+                      <p className="text-base md:text-xl font-bold text-primary">{formatCurrency(totalCost > 0 ? totalCost : 0)}</p>
+                    </Card>
+                    <Card className="p-2 md:p-4 bg-accent/10 border-accent/20">
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">
+                        {isTea ? "Processed Output" : "Roasted Output"}
+                      </p>
+                      <p className="text-base md:text-xl font-bold">{formatWeight(totalOutput)}</p>
+                    </Card>
+                    <Card className={`p-2 md:p-4 ${
+                      shrinkageStatus === 'excellent' ? 'bg-green-500/10 border-green-500/20' :
+                      shrinkageStatus === 'normal' ? 'bg-secondary/10 border-secondary/20' :
+                      'bg-orange-500/10 border-orange-500/20'
+                    }`}>
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">
+                        {isTea ? "Weight Loss" : "Shrinkage"}
+                      </p>
+                      <p className={`text-base md:text-xl font-bold ${
+                        shrinkageStatus === 'excellent' ? 'text-green-600' :
+                        shrinkageStatus === 'high' ? 'text-orange-600' : ''
+                      }`}>
+                        {shrinkage > 0 ? shrinkage.toFixed(1) : 0}%
+                      </p>
+                      <p className="text-[8px] md:text-[10px] text-muted-foreground mt-0.5">
+                        Expected: {expectedShrinkage.min}-{expectedShrinkage.max}%
+                      </p>
+                    </Card>
+                    <Card className="p-2 md:p-4 bg-green-500/10 border-green-500/20">
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5 md:mb-1">Cost Per Gram</p>
+                      <p className="text-base md:text-xl font-bold text-green-600">{formatCurrency(costPerGram > 0 ? costPerGram : 0)}</p>
+                    </Card>
+                  </div>
+                  
+                  <Card className="p-3 md:p-4">
+                    <div className="space-y-1.5 md:space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs md:text-sm font-medium">
+                          {isTea ? "Processed Tea for Sale" : "Weight for Sale"}
+                        </span>
+                        <span className="text-xs md:text-sm font-bold">{formatWeight(weightForSale > 0 ? weightForSale : 0)}</span>
+                      </div>
+                      <Progress value={totalOutput > 0 ? (weightForSale / totalOutput) * 100 : 0} />
+                      <p className="text-[10px] md:text-xs text-muted-foreground">
+                        Track product assignments in the Products section
+                      </p>
+                    </div>
+                  </Card>
+                </>
+              );
+            })()}
           </AccordionContent>
         </AccordionItem>
 
         {/* Batch Profitability Analysis */}
         <AccordionItem value="profitability">
           <AccordionTrigger className="text-sm md:text-base font-semibold">
-            Batch Profitability Analysis
+            {isTea ? "Processing Batch Analysis" : "Batch Profitability Analysis"}
           </AccordionTrigger>
           <AccordionContent className="space-y-3 md:space-y-4 pt-3 md:pt-4">
             {localLineup.roastLogs.length === 0 ? (
               <p className="text-xs md:text-sm text-muted-foreground text-center py-6 md:py-8">
-                Add roast logs to see profitability analysis
+                {isTea 
+                  ? 'Add processing logs to see batch analysis'
+                  : 'Add roast logs to see profitability analysis'
+                }
               </p>
             ) : (
               <>
-                {/* Mobile Cards View */}
-                <div className="block md:hidden space-y-2">
-                  {localLineup.roastLogs.map((log, index) => {
-                    const roastingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
-                      ? localLineup.costs.roastingService
-                      : (localLineup.costs.roastingService * log.inputWeight / 1000);
-                    const batchCost = 
-                      (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
-                      (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
-                      roastingCostPerBatch +
-                      (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
-                    const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
-                    const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
+                {(() => {
+                  const expectedShrinkage = getExpectedShrinkageRange(isTea ? 'tea' : 'coffee');
+                  
+                  return (
+                    <>
+                      {/* Mobile Cards View */}
+                      <div className="block md:hidden space-y-2">
+                        {localLineup.roastLogs.map((log, index) => {
+                          const processingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
+                            ? localLineup.costs.roastingService
+                            : (localLineup.costs.roastingService * log.inputWeight / 1000);
+                          const batchCost = 
+                            (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
+                            (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
+                            processingCostPerBatch +
+                            (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
+                          const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
+                          const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
+                          
+                          const lossStatus = loss < expectedShrinkage.min 
+                            ? 'excellent' 
+                            : loss <= expectedShrinkage.max 
+                              ? 'normal' 
+                              : 'high';
 
-                    return (
-                      <Card key={log.id} className="p-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-semibold text-sm">Batch {index + 1}</span>
-                          <span className="text-xs text-muted-foreground">{new Date(log.date).toLocaleDateString('id-ID')}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-muted-foreground">Input:</span>
-                            <span className="ml-1 font-medium">{formatWeight(log.inputWeight)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Output:</span>
-                            <span className="ml-1 font-medium">{formatWeight(log.outputWeight)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Loss:</span>
-                            <span className={`ml-1 font-medium ${loss > 20 ? 'text-destructive' : loss > 15 ? 'text-orange-500' : 'text-green-600'}`}>
-                              {loss.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Cost/g:</span>
-                            <span className="ml-1 font-semibold">{formatCurrency(costPerG)}</span>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          return (
+                            <Card key={log.id} className="p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-semibold text-sm">
+                                  {isTea ? `Process ${index + 1}` : `Batch ${index + 1}`}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{new Date(log.date).toLocaleDateString('id-ID')}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Input:</span>
+                                  <span className="ml-1 font-medium">{formatWeight(log.inputWeight)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Output:</span>
+                                  <span className="ml-1 font-medium">{formatWeight(log.outputWeight)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">{isTea ? 'Loss:' : 'Shrink:'}</span>
+                                  <span className={`ml-1 font-medium ${
+                                    lossStatus === 'excellent' ? 'text-green-600' : 
+                                    lossStatus === 'normal' ? 'text-foreground' : 
+                                    'text-orange-500'
+                                  }`}>
+                                    {loss.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Cost/g:</span>
+                                  <span className="ml-1 font-semibold">{formatCurrency(costPerG)}</span>
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
 
-                {/* Desktop Table View */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr className="text-left text-sm">
-                        <th className="p-3 font-semibold">Batch</th>
-                        <th className="p-3 font-semibold">Date</th>
-                        <th className="p-3 font-semibold text-right">Input</th>
-                        <th className="p-3 font-semibold text-right">Output</th>
-                        <th className="p-3 font-semibold text-right">Loss %</th>
-                        <th className="p-3 font-semibold text-right">Cost</th>
-                        <th className="p-3 font-semibold text-right">Cost/g</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {localLineup.roastLogs.map((log, index) => {
-                        const roastingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
-                          ? localLineup.costs.roastingService
-                          : (localLineup.costs.roastingService * log.inputWeight / 1000);
-                        const batchCost = 
-                          (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
-                          (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
-                          roastingCostPerBatch +
-                          (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
-                        const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
-                        const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-muted/50">
+                            <tr className="text-left text-sm">
+                              <th className="p-3 font-semibold">{isTea ? 'Process' : 'Batch'}</th>
+                              <th className="p-3 font-semibold">Date</th>
+                              <th className="p-3 font-semibold text-right">Input</th>
+                              <th className="p-3 font-semibold text-right">Output</th>
+                              <th className="p-3 font-semibold text-right">{isTea ? 'Loss %' : 'Shrink %'}</th>
+                              <th className="p-3 font-semibold text-right">Cost</th>
+                              <th className="p-3 font-semibold text-right">Cost/g</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {localLineup.roastLogs.map((log, index) => {
+                              const processingCostPerBatch = localLineup.costs.roastingServiceType === "perBatch"
+                                ? localLineup.costs.roastingService
+                                : (localLineup.costs.roastingService * log.inputWeight / 1000);
+                              const batchCost = 
+                                (localLineup.costs.greenBeansPrice * log.inputWeight / 1000) +
+                                (localLineup.costs.greenBeansShipping / localLineup.roastLogs.length) +
+                                processingCostPerBatch +
+                                (localLineup.costs.roastingTransport / localLineup.roastLogs.length);
+                              const loss = log.inputWeight > 0 ? ((log.inputWeight - log.outputWeight) / log.inputWeight) * 100 : 0;
+                              const costPerG = log.outputWeight > 0 ? batchCost / log.outputWeight : 0;
+                              
+                              const lossStatus = loss < expectedShrinkage.min 
+                                ? 'excellent' 
+                                : loss <= expectedShrinkage.max 
+                                  ? 'normal' 
+                                  : 'high';
 
-                        return (
-                          <tr key={log.id} className="border-t hover:bg-muted/30">
-                            <td className="p-3 font-medium">Batch {index + 1}</td>
-                            <td className="p-3">{new Date(log.date).toLocaleDateString('id-ID')}</td>
-                            <td className="p-3 text-right">{formatWeight(log.inputWeight)}</td>
-                            <td className="p-3 text-right">{formatWeight(log.outputWeight)}</td>
-                            <td className="p-3 text-right">
-                              <span className={loss > 20 ? 'text-destructive' : loss > 15 ? 'text-orange-500' : 'text-green-600'}>
-                                {loss.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="p-3 text-right">{formatCurrency(batchCost)}</td>
-                            <td className="p-3 text-right font-semibold">{formatCurrency(costPerG)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                              return (
+                                <tr key={log.id} className="border-t hover:bg-muted/30">
+                                  <td className="p-3 font-medium">{isTea ? `Process ${index + 1}` : `Batch ${index + 1}`}</td>
+                                  <td className="p-3">{new Date(log.date).toLocaleDateString('id-ID')}</td>
+                                  <td className="p-3 text-right">{formatWeight(log.inputWeight)}</td>
+                                  <td className="p-3 text-right">{formatWeight(log.outputWeight)}</td>
+                                  <td className="p-3 text-right">
+                                    <span className={
+                                      lossStatus === 'excellent' ? 'text-green-600' : 
+                                      lossStatus === 'normal' ? '' : 
+                                      'text-orange-500'
+                                    }>
+                                      {loss.toFixed(1)}%
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right">{formatCurrency(batchCost)}</td>
+                                  <td className="p-3 text-right font-semibold">{formatCurrency(costPerG)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div className="grid gap-2 md:gap-4 grid-cols-1 sm:grid-cols-3">
-                  <Card className="p-3 md:p-4 bg-blue-500/10 border-blue-500/20">
+                  <Card className="p-3 md:p-4 bg-primary/10 border-primary/20">
                     <p className="text-[10px] md:text-xs text-muted-foreground">Total Investment</p>
-                    <p className="text-base md:text-xl font-bold text-blue-600">{formatCurrency(totalCost)}</p>
+                    <p className="text-base md:text-xl font-bold text-primary">{formatCurrency(totalCost)}</p>
                   </Card>
                   <Card className="p-3 md:p-4 bg-green-500/10 border-green-500/20">
                     <p className="text-[10px] md:text-xs text-muted-foreground">Potential Revenue</p>
                     <p className="text-base md:text-xl font-bold text-green-600">{formatCurrency(weightForSale * costPerGram * 1.5)}</p>
                     <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">Based on 50% markup</p>
                   </Card>
-                  <Card className="p-3 md:p-4 bg-purple-500/10 border-purple-500/20">
+                  <Card className="p-3 md:p-4 bg-accent/10 border-accent/20">
                     <p className="text-[10px] md:text-xs text-muted-foreground">Potential Profit</p>
-                    <p className="text-base md:text-xl font-bold text-purple-600">{formatCurrency((weightForSale * costPerGram * 1.5) - totalCost)}</p>
+                    <p className="text-base md:text-xl font-bold text-accent">{formatCurrency((weightForSale * costPerGram * 1.5) - totalCost)}</p>
                     <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1">At 50% margin</p>
                   </Card>
                 </div>
