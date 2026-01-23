@@ -251,13 +251,15 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                 />
               </div>
               <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="greenBeansPrice" className="text-xs md:text-sm">Green Beans Price (IDR/kg)</Label>
+                <Label htmlFor="greenBeansPrice" className="text-xs md:text-sm">
+                  {isTea ? "Tea Leaf Price (IDR/kg)" : "Green Beans Price (IDR/kg)"}
+                </Label>
                 <Input
                   id="greenBeansPrice"
                   type="number"
                   value={localLineup.costs.greenBeansPrice || ""}
                   onChange={(e) => handleCostsChange('greenBeansPrice', Number(e.target.value))}
-                  placeholder="100000"
+                  placeholder={isTea ? "150000" : "100000"}
                   className="h-9 md:h-10 text-sm"
                 />
               </div>
@@ -274,7 +276,10 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
               </div>
               <div className="space-y-1.5 md:space-y-2">
                 <Label htmlFor="roastingService" className="text-xs md:text-sm">
-                  Roasting Service ({localLineup.costs.roastingServiceType === "perBatch" ? "IDR/Batch" : "IDR/Kg"})
+                  {isTea 
+                    ? `Processing Service (${localLineup.costs.roastingServiceType === "perBatch" ? "IDR/Batch" : "IDR/Kg"})`
+                    : `Roasting Service (${localLineup.costs.roastingServiceType === "perBatch" ? "IDR/Batch" : "IDR/Kg"})`
+                  }
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -297,7 +302,9 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                 </div>
               </div>
               <div className="space-y-1.5 md:space-y-2">
-                <Label htmlFor="roastingTransport" className="text-xs md:text-sm">Roasting Transport (IDR)</Label>
+                <Label htmlFor="roastingTransport" className="text-xs md:text-sm">
+                  {isTea ? "Processing Transport (IDR)" : "Roasting Transport (IDR)"}
+                </Label>
                 <Input
                   id="roastingTransport"
                   type="number"
@@ -309,26 +316,26 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
               </div>
             </div>
 
-            {/* Roast Logs */}
+            {/* Roast/Processing Logs */}
             <div className="space-y-3 md:space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <Label className="text-sm md:text-base">Roast Logs</Label>
+                <Label className="text-sm md:text-base">{isTea ? "Processing Logs" : "Roast Logs"}</Label>
                 <div className="flex gap-2 w-full sm:w-auto">
                   {hasUnsavedRoastLogs && (
                     <Button onClick={handleSaveRoastLogs} size="sm" variant="default" className="flex-1 sm:flex-none">
-                      Save Roast Logs
+                      {isTea ? "Save Processing Logs" : "Save Roast Logs"}
                     </Button>
                   )}
                   <Button onClick={addRoastLog} size="sm" variant="outline" className="gap-2 flex-1 sm:flex-none">
                     <Plus className="h-4 w-4" />
-                    Add Roast
+                    {isTea ? "Add Process" : "Add Roast"}
                   </Button>
                 </div>
               </div>
 
               {localLineup.roastLogs.length > 0 ? (
                 <div className="space-y-2 md:space-y-3">
-                  {localLineup.roastLogs.map((log) => (
+                  {localLineup.roastLogs.map((log, index) => (
                     <Card key={log.id} className="p-3 md:p-4">
                       <div className="grid gap-2 md:gap-3 grid-cols-2 sm:grid-cols-4">
                         <div className="space-y-1 col-span-2 sm:col-span-1">
@@ -343,7 +350,7 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Input (g)</Label>
+                          <Label className="text-xs">{isTea ? "Input Tea (g)" : "Input (g)"}</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -356,7 +363,7 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Output (g)</Label>
+                          <Label className="text-xs">{isTea ? "Output Tea (g)" : "Output (g)"}</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -364,7 +371,7 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                             onChange={(e) =>
                               updateRoastLog(log.id, { outputWeight: Number(e.target.value) })
                             }
-                            placeholder="850"
+                            placeholder={isTea ? "950" : "850"}
                             className="h-9 text-sm"
                           />
                         </div>
@@ -384,7 +391,10 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                 </div>
               ) : (
                 <p className="text-xs md:text-sm text-muted-foreground">
-                  No roast logs yet. Click "Add Roast" to start tracking.
+                  {isTea 
+                    ? 'No processing logs yet. Click "Add Process" to start tracking.'
+                    : 'No roast logs yet. Click "Add Roast" to start tracking.'
+                  }
                 </p>
               )}
 
@@ -393,13 +403,13 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
                 <Card className="p-3 md:p-4">
                   <h4 className="text-xs md:text-sm font-semibold mb-3 md:mb-4">Input vs Output</h4>
                   <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={chartData}>
+                    <BarChart data={chartData.map((d, i) => ({ ...d, name: isTea ? `Process ${i + 1}` : `Roast ${i + 1}` }))}>
                       <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <Bar dataKey="input" fill="hsl(var(--primary))" name="Input (g)" />
-                      <Bar dataKey="output" fill="hsl(var(--accent))" name="Output (g)" />
+                      <Bar dataKey="input" fill="hsl(var(--primary))" name={isTea ? "Input Tea (g)" : "Input (g)"} />
+                      <Bar dataKey="output" fill="hsl(var(--accent))" name={isTea ? "Output Tea (g)" : "Output (g)"} />
                     </BarChart>
                   </ResponsiveContainer>
                 </Card>
@@ -411,7 +421,7 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
         {/* Allocations */}
         <AccordionItem value="allocations">
           <AccordionTrigger className="text-sm md:text-base font-semibold">
-            Bean Allocations
+            {isTea ? "Tea Allocations" : "Bean Allocations"}
           </AccordionTrigger>
           <AccordionContent className="space-y-3 md:space-y-4 pt-3 md:pt-4">
             <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2">
@@ -460,11 +470,16 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
             <Card className="p-3 md:p-4 bg-accent/10 border-accent">
               <div className="space-y-1 md:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs md:text-sm font-semibold">Roasted Beans for Sale</span>
+                  <span className="text-xs md:text-sm font-semibold">
+                    {isTea ? "Processed Tea for Sale" : "Roasted Beans for Sale"}
+                  </span>
                   <span className="text-base md:text-lg font-bold text-accent">{formatWeight(weightForSale)}</span>
                 </div>
                 <p className="text-[10px] md:text-xs text-muted-foreground">
-                  Total roasted output minus R&D and Promo allocations
+                  {isTea 
+                    ? "Total processed output minus R&D and Promo allocations"
+                    : "Total roasted output minus R&D and Promo allocations"
+                  }
                 </p>
               </div>
             </Card>
@@ -472,7 +487,9 @@ export function LineupForm({ lineup, lineupCode, products = [], transactions = [
             <Card className={`p-3 md:p-4 ${remainingBeansToSale < 0 ? 'bg-destructive/10 border-destructive' : 'bg-primary/10 border-primary'}`}>
               <div className="space-y-2 md:space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs md:text-sm font-semibold">Remaining Roasted Beans to Sale</span>
+                  <span className="text-xs md:text-sm font-semibold">
+                    {isTea ? "Remaining Processed Tea to Sale" : "Remaining Roasted Beans to Sale"}
+                  </span>
                   <span className={`text-base md:text-lg font-bold ${remainingBeansToSale < 0 ? 'text-destructive' : 'text-primary'}`}>
                     {formatWeight(remainingBeansToSale)}
                   </span>
