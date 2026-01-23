@@ -6,18 +6,18 @@ export function calculateTotalInitialCost(lineup: Lineup): number {
   // Calculate total input weight from roast logs
   const totalRoastingInput = roastLogs.reduce((sum, log) => sum + log.inputWeight, 0);
   
-  // Green beans cost based on actual roast log input, not initial stock
-  const greenBeansCost = (costs.greenBeansPrice * totalRoastingInput) / 1000; // Convert grams to kg
+  // Raw material cost based on actual log input (green beans for coffee, tea leaf for tea)
+  const rawMaterialCost = (costs.greenBeansPrice * totalRoastingInput) / 1000; // Convert grams to kg
   
-  // Calculate roasting service cost based on service type
-  const roastingServiceCost = costs.roastingServiceType === "perBatch"
+  // Calculate processing service cost based on service type
+  const processingServiceCost = costs.roastingServiceType === "perBatch"
     ? costs.roastingService * roastLogs.length
     : (costs.roastingService * totalRoastingInput) / 1000; // Convert grams to kg
   
   return (
-    greenBeansCost +
+    rawMaterialCost +
     costs.greenBeansShipping +
-    roastingServiceCost +
+    processingServiceCost +
     costs.roastingTransport
   );
 }
@@ -26,11 +26,21 @@ export function calculateTotalRoastedOutput(lineup: Lineup): number {
   return lineup.roastLogs.reduce((sum, log) => sum + log.outputWeight, 0);
 }
 
+// For tea, typical shrinkage is 5-15% (drying/processing)
+// For coffee, typical shrinkage is 15-20% (roasting)
 export function calculateShrinkagePercentage(lineup: Lineup): number {
   const totalInput = lineup.roastLogs.reduce((sum, log) => sum + log.inputWeight, 0);
   const totalOutput = calculateTotalRoastedOutput(lineup);
   if (totalInput === 0) return 0;
   return ((totalInput - totalOutput) / totalInput) * 100;
+}
+
+// Expected shrinkage range based on category
+export function getExpectedShrinkageRange(category: 'coffee' | 'tea'): { min: number; max: number; label: string } {
+  if (category === 'tea') {
+    return { min: 5, max: 15, label: 'Tea processing typically has 5-15% weight loss' };
+  }
+  return { min: 15, max: 20, label: 'Coffee roasting typically has 15-20% weight loss' };
 }
 
 export function calculateCostPerGram(lineup: Lineup): number {
