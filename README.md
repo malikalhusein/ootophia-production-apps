@@ -1,73 +1,54 @@
-# Welcome to your Lovable project
+# ☕ Ootophia Brewing Labs
 
-## Project info
+> Sistem manajemen produksi dan penjualan untuk bisnis kopi & teh — dari hitung HPP hingga invoice.
 
-**URL**: https://lovable.dev/projects/35fdfe1f-11d2-45c1-a99d-e3d43bd3904b
+## Tentang Project
 
-## How can I edit this code?
+**Ootophia Brewing Labs** adalah aplikasi web all-in-one untuk mengelola seluruh alur bisnis kopi dan teh:
 
-There are several ways of editing your application.
+- **Production Cost Calculator** — Hitung biaya produksi per batch & lineup (Coffee & Tea), tracking shrinkage, cost per gram
+- **Products Management** — Kelola produk, HPP otomatis, stock tracking, bundles
+- **Sales Journal** — Catat transaksi (sale/promo/RnD/bonus), generate invoice, export PDF
+- **Role-Based Access** — 3 role (Admin, Sales, Reseller) dengan menu & dashboard berbeda
+- **Customer Management** — Database pelanggan dengan status member
+- **Batch Profitability** — Analisis profit per batch
+- **POS API** — Backend function untuk integrasi sistem kasir eksternal
+- **Dark/Light Mode**
 
-**Use Lovable**
+## Tech Stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/35fdfe1f-11d2-45c1-a99d-e3d43bd3904b) and start prompting.
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite |
+| Styling | Tailwind CSS, shadcn/ui |
+| State | TanStack React Query, React Context |
+| Backend | Lovable Cloud (Auth, Database, Edge Functions) |
+| Charts | Recharts |
+| PDF | jsPDF + jspdf-autotable |
+| Routing | React Router v7 |
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Getting Started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone & install
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Run dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Dokumentasi Lengkap
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Lihat **[PROJECT_DOCUMENTATION.md](./PROJECT_DOCUMENTATION.md)** untuk:
+- Detail setiap fitur & reproduction prompts
+- Database schema
+- Arsitektur & pola kode
+- Roadmap pengembangan
+- Troubleshooting
 
-**Use GitHub Codespaces**
+## Links
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/35fdfe1f-11d2-45c1-a99d-e3d43bd3904b) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- **Lovable Project**: https://lovable.dev/projects/35fdfe1f-11d2-45c1-a99d-e3d43bd3904b
+- **Dokumentasi Lovable**: https://docs.lovable.dev
