@@ -487,7 +487,262 @@ Semua kalkulasi terpusat di `src/lib/calculations.ts`:
 
 ---
 
-## 5. Roadmap & Fitur yang Bisa Dikembangkan
+## 5. Variabel Perhitungan & Algoritma
+
+### 5.1 Variabel Database yang Digunakan dalam Perhitungan
+
+#### Tabel `lineups` — Variabel Biaya Produksi
+
+| Kolom | Tipe | Satuan | Keterangan |
+|-------|------|--------|------------|
+| `green_beans_price` | numeric | IDR/kg | Harga bahan baku per kilogram (green beans untuk kopi, tea leaf untuk teh) |
+| `green_beans_shipping` | numeric | IDR (flat) | Biaya pengiriman bahan baku — flat fee per lineup |
+| `roasting_service` | numeric | IDR/kg atau IDR/batch | Biaya jasa processing (roasting/pengolahan) |
+| `roasting_service_type` | text | `"perKg"` atau `"perBatch"` | Menentukan cara hitung biaya jasa: per kilogram input atau flat per batch |
+| `roasting_transport` | numeric | IDR (flat) | Biaya transport ke/dari tempat processing — flat fee |
+| `initial_weight` | numeric | gram | Berat awal bahan baku yang dibeli |
+| `rnd_allocation` | numeric | gram | Kuota berat yang dialokasikan untuk R&D (tidak dijual) |
+| `promo_allocation` | numeric | gram | Kuota berat yang dialokasikan untuk promosi (tidak dijual) |
+| `rnd_allocation_used` | numeric | gram | Jumlah alokasi R&D yang sudah terpakai |
+| `promo_allocation_used` | numeric | gram | Jumlah alokasi Promo yang sudah terpakai |
+| `category` | text | `"coffee"` atau `"tea"` | Menentukan label UI dan expected shrinkage range |
+
+#### Tabel `roast_logs` — Log Proses Produksi
+
+| Kolom | Tipe | Satuan | Keterangan |
+|-------|------|--------|------------|
+| `input_weight` | numeric | gram | Berat bahan mentah yang masuk proses (per sesi roasting/processing) |
+| `output_weight` | numeric | gram | Berat hasil setelah proses (selalu < input karena shrinkage) |
+| `date` | date | - | Tanggal proses dilakukan |
+
+#### Tabel `products` — Variabel Biaya Produk
+
+| Kolom | Tipe | Satuan | Keterangan |
+|-------|------|--------|------------|
+| `net_weight` | numeric | gram | Berat bersih produk per unit kemasan |
+| `packaging_cost` | numeric | IDR/unit | Biaya kemasan per unit produk |
+| `label_cost` | numeric | IDR/unit | Biaya label per unit produk |
+| `marketing_cost` | numeric | IDR/unit | Biaya marketing per unit produk |
+| `margin_percentage` | numeric | % | Persentase margin keuntungan di atas HPP |
+| `stock` | integer | unit | Jumlah stok saat ini |
+| `stock_threshold` | integer | unit | Batas minimum stok sebelum alert |
+
+---
+
+### 5.2 Workflow Produksi (Production Flow)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        PRODUCTION WORKFLOW                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. BUAT BATCH                                                      │
+│     └─ Batch = grup produksi (misal: "Batch Maret 2026")            │
+│        └─ Memiliki: code, name, theme, description, start_date      │
+│                                                                     │
+│  2. TAMBAH LINEUP (dalam batch)                                     │
+│     └─ Lineup = satu varian produk (misal: "Aceh Gayo Natural")     │
+│        └─ Pilih kategori: Coffee atau Tea                           │
+│        └─ Isi identity (origin, process, variety, dll.)             │
+│        └─ Isi data pembelian bahan baku:                            │
+│           • Purchase date                                           │
+│           • Initial weight (gram)                                   │
+│           • Harga bahan baku per kg                                 │
+│           • Biaya shipping (flat)                                   │
+│           • Biaya jasa processing (per kg ATAU per batch)           │
+│           • Biaya transport processing (flat)                       │
+│                                                                     │
+│  3. CATAT PROCESSING LOGS (Roast Logs / Processing Logs)            │
+│     └─ Setiap sesi processing = 1 log entry                        │
+│     └─ Input: tanggal, input weight, output weight                  │
+│     └─ Bisa ada MULTIPLE logs per lineup (misal: 3× roasting)      │
+│     └─ Total input & output dihitung dari SEMUA log entries         │
+│                                                                     │
+│  4. SET ALOKASI (Bean/Tea Allocations)                              │
+│     └─ Tentukan berapa gram untuk:                                  │
+│        • R&D (sample, cupping, eksperimen)                          │
+│        • Promo (giveaway, sample gratis)                            │
+│     └─ Sisa = "Weight for Sale" (yang bisa dijadikan produk)        │
+│                                                                     │
+│  5. BUAT PRODUK (dari lineup)                                       │
+│     └─ Produk mengambil bahan dari "Weight for Sale"                │
+│     └─ Setiap produk punya: net weight, packaging/label/marketing   │
+│     └─ HPP & harga jual otomatis dihitung                          │
+│     └─ Set stock (berapa unit yang diproduksi)                      │
+│                                                                     │
+│  6. JUAL (Sales Journal)                                            │
+│     └─ Catat transaksi: sale → kurangi stok otomatis                │
+│     └─ Atau: promo/rnd → kurangi alokasi terpakai                  │
+│     └─ Generate invoice dari transaksi                              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.3 Algoritma Perhitungan — Step by Step
+
+#### A. Total Production Cost (Biaya Produksi Total)
+
+Dihitung di `src/lib/calculationService.ts` → `getTotalProductionCost(lineup)`
+
+```
+STEP 1: Hitung Total Input Weight
+  totalInput = SUM(roast_logs[].input_weight)
+  → Contoh: 3 sesi roasting × 2000g = 6000g
+
+STEP 2: Hitung Raw Material Cost (Biaya Bahan Baku)
+  rawMaterialCost = (green_beans_price × totalInput) / 1000
+  → green_beans_price dalam IDR/kg, totalInput dalam gram
+  → Contoh: (Rp 200.000/kg × 6000g) / 1000 = Rp 1.200.000
+
+STEP 3: Hitung Processing Service Cost (Biaya Jasa)
+  JIKA roasting_service_type == "perKg":
+    processingCost = (roasting_service × totalInput) / 1000
+    → Contoh: (Rp 50.000/kg × 6000g) / 1000 = Rp 300.000
+  JIKA roasting_service_type == "perBatch":
+    processingCost = roasting_service × jumlah_roast_logs
+    → Contoh: Rp 100.000/batch × 3 sesi = Rp 300.000
+
+STEP 4: Jumlahkan Semua Biaya
+  totalCost = rawMaterialCost 
+            + green_beans_shipping (flat)
+            + processingCost
+            + roasting_transport (flat)
+  → Contoh: 1.200.000 + 50.000 + 300.000 + 30.000 = Rp 1.580.000
+```
+
+#### B. Weight for Sale (Berat Tersedia untuk Dijual)
+
+```
+STEP 1: Hitung Total Roasted Output
+  totalOutput = SUM(roast_logs[].output_weight)
+  → Contoh: (1700 + 1680 + 1720) = 5100g
+
+STEP 2: Kurangi Alokasi
+  weightForSale = totalOutput - rnd_allocation - promo_allocation
+  → Contoh: 5100 - 100 - 50 = 4950g
+```
+
+#### C. Cost Per Gram (HPP per Gram Bahan Olahan)
+
+```
+costPerGram = totalProductionCost / weightForSale
+→ Contoh: Rp 1.580.000 / 4950g = Rp 319,19/gram
+
+⚠️ PENTING: Cost per gram dihitung dari WEIGHT FOR SALE,
+   bukan dari total output. Ini karena biaya R&D dan promo
+   ditanggung oleh produk yang dijual.
+```
+
+#### D. Shrinkage Percentage (Persentase Susut)
+
+```
+shrinkage = ((totalInput - totalOutput) / totalInput) × 100%
+→ Contoh: ((6000 - 5100) / 6000) × 100 = 15%
+
+Expected ranges:
+  Coffee: 15-20% (normal roasting loss)
+  Tea: 5-15% (drying/processing loss)
+  
+Status indicator:
+  < min → "Excellent" (hijau)
+  min-max → "Normal" (kuning)
+  > max → "High" (merah)
+```
+
+#### E. Product HPP (Harga Pokok Produksi per Unit Produk)
+
+Dihitung di `src/lib/calculationService.ts` → `getProductHPP(product, costPerGram)`
+
+```
+STEP 1: Hitung Bean Cost per Unit
+  beanCost = net_weight × costPerGram
+  → Contoh: 200g × Rp 319,19/g = Rp 63.838
+
+STEP 2: Hitung Total Packaging Cost
+  packagingTotal = packaging_cost + label_cost + marketing_cost
+  → Contoh: 5.000 + 2.000 + 3.000 = Rp 10.000
+
+STEP 3: Hitung HPP (Cost of Goods)
+  totalHPP = beanCost + packagingTotal
+  → Contoh: 63.838 + 10.000 = Rp 73.838
+
+STEP 4: Hitung Harga Jual
+  sellingPrice = totalHPP × (1 + margin_percentage / 100)
+  → Contoh: 73.838 × (1 + 40/100) = 73.838 × 1.4 = Rp 103.373
+  → Dibulatkan ke bilangan bulat: Rp 103.373
+
+STEP 5: Hitung Profit per Unit
+  profitPerUnit = sellingPrice - totalHPP
+  → Contoh: 103.373 - 73.838 = Rp 29.535
+```
+
+#### F. Available Beans (Sisa Berat untuk Produk Baru)
+
+```
+weightAssigned = SUM(products[lineup_id=this].net_weight × stock)
+availableBeans = weightForSale - weightAssigned
+
+→ Contoh: 
+   Product A: 200g × 10 unit = 2000g
+   Product B: 100g × 15 unit = 1500g
+   weightAssigned = 3500g
+   availableBeans = 4950 - 3500 = 1450g tersisa
+```
+
+#### G. Allocation Usage (Pemakaian Alokasi dari Transaksi)
+
+```
+rndUsed = SUM(transactions[lineup_id=this AND status="rnd"].quantity)
+promoUsed = SUM(transactions[lineup_id=this AND status="promo"].quantity)
+
+remainingRnd = rnd_allocation - rndUsed
+remainingPromo = promo_allocation - promoUsed
+```
+
+---
+
+### 5.4 Format Angka
+
+| Fungsi | Format | Contoh |
+|--------|--------|--------|
+| `formatCurrency(amount)` | IDR tanpa desimal | Rp 1.580.000 |
+| `formatWeight(grams)` | gram atau kg (≥1000g) | 4.950 g atau 4,95 kg |
+| Internal precision | 4 desimal | 319.1919 |
+| Harga jual | Bulat (0 desimal) | Rp 103.373 |
+
+---
+
+### 5.5 Diagram Alur Data Perhitungan
+
+```
+lineups.green_beans_price ──┐
+lineups.green_beans_shipping ┤
+lineups.roasting_service ────┼──→ getTotalProductionCost() ──┐
+lineups.roasting_service_type┤                                │
+lineups.roasting_transport ──┘                                │
+                                                              ├──→ getCostPerGram()
+roast_logs[].output_weight ──┐                                │
+lineups.rnd_allocation ──────┼──→ getWeightForSale() ─────────┘
+lineups.promo_allocation ────┘         │
+                                       │
+                    costPerGram ────────┼──→ getProductHPP()
+                                       │      │
+products.net_weight ───────────────────┘      │
+products.packaging_cost ──┐                    │
+products.label_cost ──────┼────────────────────┤
+products.marketing_cost ──┘                    │
+products.margin_percentage ────────────────────┘
+                                               │
+                                               ▼
+                                    { beanCost, totalHPP, 
+                                      sellingPrice, profitPerUnit }
+```
+
+---
+
+## 6. Roadmap & Fitur yang Bisa Dikembangkan
 
 ### Phase 1: Tea Category Enhancement
 - [ ] Blending/aging tracking dengan timeline
@@ -518,7 +773,7 @@ Semua kalkulasi terpusat di `src/lib/calculations.ts`:
 
 ---
 
-## 6. Quick Reference: Konfigurasi Penting
+## 7. Quick Reference: Konfigurasi Penting
 
 ### Environment Variables (auto-managed)
 ```
@@ -538,7 +793,7 @@ Dashboard menggunakan realtime untuk `transactions`, `products`, dan `lineups` t
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Masalah | Solusi |
 |---------|--------|
